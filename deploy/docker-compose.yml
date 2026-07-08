@@ -1,0 +1,121 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: adnet-postgres
+    environment:
+      POSTGRES_DB: adnet
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: adnet-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    container_name: adnet-api
+    environment:
+      POSTGRES_URL: postgres://postgres:postgres@postgres:5432/adnet?sslmode=disable
+      REDIS_URL: redis:6379
+      JWT_SECRET: dev-secret-key-change-in-production
+      PORT: 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  adserve:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.adserve
+    container_name: adnet-adserve
+    environment:
+      REDIS_URL: redis:6379
+      JWT_SECRET: dev-secret-key-change-in-production
+      PORT: 8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  eventd:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.eventd
+    container_name: adnet-eventd
+    environment:
+      REDIS_URL: redis:6379
+      POSTGRES_URL: postgres://postgres:postgres@postgres:5432/adnet?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  reconciler:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.reconciler
+    container_name: adnet-reconciler
+    environment:
+      REDIS_URL: redis:6379
+      POSTGRES_URL: postgres://postgres:postgres@postgres:5432/adnet?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  billingd:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.billingd
+    container_name: adnet-billingd
+    environment:
+      POSTGRES_URL: postgres://postgres:postgres@postgres:5432/adnet?sslmode=disable
+      MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-}
+      MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-}
+      MPESA_ENVIRONMENT: ${MPESA_ENVIRONMENT:-sandbox}
+      MPESA_SHORTCODE: ${MPESA_SHORTCODE:-174379}
+      MPESA_PASSKEY: ${MPESA_PASSKEY:-bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c619}
+      MPESA_CALLBACK_URL: ${MPESA_CALLBACK_URL:-http://localhost:8083/callback}
+      PORT: 8083
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

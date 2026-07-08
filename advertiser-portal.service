@@ -1,0 +1,16 @@
+[Unit]
+Description=AdNet Advertiser Portal
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/advertiser-portal/.output
+ExecStart=/usr/bin/node server/index.mjs
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+[Install]
+WantedBy=multi-user.target
