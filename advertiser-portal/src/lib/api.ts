@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://167.233.171.202:8080";
+const API_URL = import.meta.env.VITE_API_URL || "https://api.otexads.com";
 
 export type PricingModel = "CPC" | "CPM" | "CPA";
 export type CreativeFormat = "push" | "popunder" | "native" | "banner" | "interstitial";
@@ -58,8 +58,11 @@ export interface DailyStat {
 }
 
 interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
+  access_token: string;
+  refresh_token: string;
+  account_id: string;
+  email: string;
+  type: string;
 }
 
 interface LoginRequest {
@@ -70,7 +73,8 @@ interface LoginRequest {
 interface RegisterRequest {
   email: string;
   password: string;
-  name: string;
+  account_type: string;
+  company_name?: string;
 }
 
 class ApiClient {
@@ -116,7 +120,12 @@ class ApiClient {
       throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
 
-    return response.json();
+    const json = await response.json();
+    // Unwrap the backend's { success: true, data: ... } envelope
+    if (json && typeof json === "object" && "success" in json && "data" in json) {
+      return (json as any).data as T;
+    }
+    return json as T;
   }
 
   async login(data: LoginRequest): Promise<AuthResponse> {
@@ -124,7 +133,7 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify(data),
     });
-    this.setToken(res.accessToken);
+    this.setToken(res.access_token);
     return res;
   }
 
@@ -133,18 +142,48 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify(data),
     });
-    this.setToken(res.accessToken);
+    this.setToken(res.access_token);
     return res;
   }
 
   async getCampaigns(): Promise<Campaign[]> {
-    return this.request<Campaign[]>("/api/v1/campaigns");
+    const campaigns = await this.request<any[]>("/api/v1/campaigns");
+    // Transform backend format to frontend format
+    return campaigns.map((c) => ({
+      id: c.id,
+      name: c.name,
+      format: "push" as CreativeFormat, // Default format since backend doesn't return it
+      pricingModel: c.pricing_model.toUpperCase() as PricingModel,
+      bid: c.bid_amount_cents / 100,
+      dailyBudget: c.daily_budget_cents / 100,
+      totalBudget: c.total_budget_cents / 100,
+      spent: 0, // Backend doesn't return this
+      impressions: 0,
+      clicks: 0,
+      conversions: 0,
+      targeting: {
+        countries: ["KE"], // Default targeting
+        devices: ["mobile", "desktop"],
+        os: ["android", "ios"],
+      },
+      status: c.status as CampaignStatus,
+      createdAt: c.created_at,
+    }));
   }
 
   async createCampaign(data: Omit<Campaign, "id" | "spent" | "impressions" | "clicks" | "conversions" | "status" | "createdAt">): Promise<Campaign> {
+    // Transform frontend format to backend format
+    const backendData = {
+      name: data.name,
+      pricing_model: data.pricingModel.toLowerCase(),
+      bid_amount_cents: Math.round(data.bid * 100),
+      daily_budget_cents: Math.round(data.dailyBudget * 100),
+      total_budget_cents: Math.round(data.totalBudget * 100),
+      timezone: "Africa/Nairobi",
+    };
     return this.request<Campaign>("/api/v1/campaigns", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify(backendData),
     });
   }
 
@@ -177,3 +216,29 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
+
+// Standalone helpers for auth pages
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("access_token");
+}
+
+export function setToken(token: string) {
+  api.setToken(token);
+}
+
+export function clearToken() {
+  api.clearToken();
+}
+
+export function getUser(): { email: string } | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem("user");
+  return raw ? JSON.parse(raw) : null;
+}
+
+export function setUser(user: { email: string }) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("user", JSON.stringify(user));
+  }
+}

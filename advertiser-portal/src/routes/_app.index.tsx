@@ -31,8 +31,8 @@ function StatCard({ label, value, sub, icon: Icon, delay = 0 }: {
 }
 
 function Dashboard() {
-  const campaigns = useStore((s) => s.campaigns);
-  const stats = useStore((s) => s.stats);
+  const campaigns = useStore((s) => s.campaigns) || [];
+  const stats = useStore((s) => s.stats) || [];
 
   const totals = stats.reduce(
     (acc, s) => {

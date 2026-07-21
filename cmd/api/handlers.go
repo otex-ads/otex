@@ -59,7 +59,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.AccountType != string(auth.AccountTypeAdvertiser) && 
-	   req.AccountType != string(auth.AccountTypePublisher) {
+	   req.AccountType != string(auth.AccountTypePublisher) &&
+	   req.AccountType != string(auth.AccountTypeAdmin) {
 		httpx.Error(w, http.StatusBadRequest, "Invalid account_type")
 		return
 	}
@@ -259,12 +260,22 @@ func (h *CampaignHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	campaign, err := h.db.CreateCampaign(r.Context(), accountID, req.Name, "draft",
+	campaign, err := h.db.CreateCampaign(r.Context(), accountID, req.Name, "pending",
 		req.PricingModel, req.BidAmountCents, req.DailyBudgetCents, req.TotalBudgetCents,
 		req.Timezone, req.StartsAt, req.EndsAt)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "Failed to create campaign")
 		return
+	}
+
+	// Set initial campaign metadata in Redis
+	campaignMeta := map[string]string{
+		"status":         "pending",
+		"creative_status": "pending",
+	}
+	if err := h.redis.SetCampaignMeta(r.Context(), campaign.ID.String(), campaignMeta); err != nil {
+		// Log error but don't fail the request
+		// Redis update is best-effort
 	}
 
 	// Publish campaign update to Redis
@@ -476,6 +487,22 @@ func (h *ZoneHandler) ListSites(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpx.JSON(w, http.StatusOK, sites)
+}
+
+func (h *ZoneHandler) ListZones(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := mw.AccountIDFromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	zones, err := h.db.ListZonesByPublisher(r.Context(), accountID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to list zones")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, zones)
 }
 
 func (h *ZoneHandler) CreateZone(w http.ResponseWriter, r *http.Request) {
@@ -832,6 +859,34 @@ func (h *PayoutHandler) ListPayouts(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, payouts)
 }
 
+func (h *PayoutHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := mw.AccountIDFromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	wallet, err := h.db.GetWallet(r.Context(), accountID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if wallet == nil {
+		httpx.JSON(w, http.StatusOK, map[string]interface{}{
+			"available": 0,
+			"pending":   0,
+			"totalPaid": 0,
+		})
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]interface{}{
+		"available": wallet.BalanceCents,
+		"pending":   0,
+		"totalPaid": 0,
+	})
+}
+
 type AdminHandler struct {
 	db    *postgres.DB
 	redis *redis.Client
@@ -843,6 +898,18 @@ func NewAdminHandler(db *postgres.DB, redisClient *redis.Client) *AdminHandler {
 
 type ModerationRequest struct {
 	CreativeID uuid.UUID `json:"creative_id"`
+	Action     string    `json:"action"` // "approve" or "reject"
+	Reason     string    `json:"reason,omitempty"`
+}
+
+type SiteModerationRequest struct {
+	SiteID uuid.UUID `json:"site_id"`
+	Action string    `json:"action"` // "approve" or "reject"
+	Reason string    `json:"reason,omitempty"`
+}
+
+type CampaignModerationRequest struct {
+	CampaignID uuid.UUID `json:"campaign_id"`
 	Action     string    `json:"action"` // "approve" or "reject"
 	Reason     string    `json:"reason,omitempty"`
 }
@@ -916,6 +983,19 @@ func (h *AdminHandler) ModerateCreative(w http.ResponseWriter, r *http.Request) 
 	if err := h.db.UpdateCreativeStatus(r.Context(), req.CreativeID, newStatus); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "Failed to update creative")
 		return
+	}
+
+	// Get the creative to find its campaign ID
+	creative, err := h.db.GetCreativeByID(r.Context(), req.CreativeID)
+	if err == nil && creative != nil {
+		// Update Redis campaign metadata with creative status
+		campaignMeta := map[string]string{
+			"creative_status": newStatus,
+		}
+		if err := h.redis.SetCampaignMeta(r.Context(), creative.CampaignID.String(), campaignMeta); err != nil {
+			// Log error but don't fail the request
+			// Redis update is best-effort
+		}
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": newStatus})
@@ -1487,4 +1567,345 @@ func (h *MarketplaceHandler) GetActiveCampaigns(w http.ResponseWriter, r *http.R
 	}
 
 	httpx.JSON(w, http.StatusOK, campaigns)
+}
+
+type PlatformStats struct {
+	TotalUsers       int64 `json:"total_users"`
+	TotalAdvertisers int64 `json:"total_advertisers"`
+	TotalPublishers  int64 `json:"total_publishers"`
+	ActiveCampaigns  int64 `json:"active_campaigns"`
+	TotalCampaigns   int64 `json:"total_campaigns"`
+	TotalRevenueCents int64 `json:"total_revenue_cents"`
+}
+
+func (h *AdminHandler) GetStats(w http.ResponseWriter, r *http.Request) {
+	accountType, ok := mw.AccountTypeFromContext(r.Context())
+	if !ok || accountType != "admin" {
+		httpx.Error(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	ctx := r.Context()
+
+	var stats PlatformStats
+
+	h.db.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM accounts WHERE type = 'advertiser'").Scan(&stats.TotalAdvertisers)
+	h.db.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM accounts WHERE type = 'publisher'").Scan(&stats.TotalPublishers)
+	stats.TotalUsers = stats.TotalAdvertisers + stats.TotalPublishers
+
+	h.db.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM campaigns WHERE status = 'active'").Scan(&stats.ActiveCampaigns)
+	h.db.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM campaigns").Scan(&stats.TotalCampaigns)
+
+	h.db.Pool().QueryRow(ctx, "SELECT COALESCE(SUM(spend_cents), 0) FROM stats").Scan(&stats.TotalRevenueCents)
+
+	httpx.JSON(w, http.StatusOK, stats)
+}
+
+func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	accountType, ok := mw.AccountTypeFromContext(r.Context())
+	if !ok || accountType != "admin" {
+		httpx.Error(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	ctx := r.Context()
+
+	query := `
+		SELECT id, type, email, company_name, status, created_at
+		FROM accounts
+		ORDER BY created_at DESC
+		LIMIT 100
+	`
+
+	rows, err := h.db.Pool().Query(ctx, query)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	defer rows.Close()
+
+	var users []postgres.Account
+	for rows.Next() {
+		var user postgres.Account
+		if err := rows.Scan(&user.ID, &user.Type, &user.Email, &user.CompanyName, &user.Status, &user.CreatedAt); err != nil {
+			continue
+		}
+		users = append(users, user)
+	}
+
+	httpx.JSON(w, http.StatusOK, users)
+}
+
+func (h *AdminHandler) ListCampaigns(w http.ResponseWriter, r *http.Request) {
+	accountType, ok := mw.AccountTypeFromContext(r.Context())
+	if !ok || accountType != "admin" {
+		httpx.Error(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	ctx := r.Context()
+
+	query := `
+		SELECT id, advertiser_id, name, status, pricing_model, bid_amount_cents, 
+		       daily_budget_cents, total_budget_cents, timezone, starts_at, ends_at, created_at
+		FROM campaigns
+		ORDER BY created_at DESC
+		LIMIT 100
+	`
+
+	rows, err := h.db.Pool().Query(ctx, query)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	defer rows.Close()
+
+	var campaigns []postgres.Campaign
+	for rows.Next() {
+		var camp postgres.Campaign
+		if err := rows.Scan(&camp.ID, &camp.AdvertiserID, &camp.Name, &camp.Status, &camp.PricingModel,
+			&camp.BidAmountCents, &camp.DailyBudgetCents, &camp.TotalBudgetCents, &camp.Timezone,
+			&camp.StartsAt, &camp.EndsAt, &camp.CreatedAt); err != nil {
+			continue
+		}
+		campaigns = append(campaigns, camp)
+	}
+
+	httpx.JSON(w, http.StatusOK, campaigns)
+}
+
+func (h *AdminHandler) ListPendingSites(w http.ResponseWriter, r *http.Request) {
+	accountType, ok := mw.AccountTypeFromContext(r.Context())
+	if !ok || accountType != "admin" {
+		httpx.Error(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	const query = `
+		SELECT id, publisher_id, domain, status, created_at
+		FROM sites
+		WHERE status = 'pending_review'
+		ORDER BY created_at ASC
+	`
+
+	rows, err := h.db.Pool().Query(r.Context(), query)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	defer rows.Close()
+
+	var sites []map[string]interface{}
+	for rows.Next() {
+		var id, publisherID uuid.UUID
+		var domain, status string
+		var createdAt time.Time
+		if err := rows.Scan(&id, &publisherID, &domain, &status, &createdAt); err != nil {
+			continue
+		}
+		sites = append(sites, map[string]interface{}{
+			"id":           id,
+			"publisher_id": publisherID,
+			"domain":       domain,
+			"status":       status,
+			"created_at":   createdAt,
+		})
+	}
+
+	httpx.JSON(w, http.StatusOK, sites)
+}
+
+func (h *AdminHandler) ModerateSite(w http.ResponseWriter, r *http.Request) {
+	accountType, ok := mw.AccountTypeFromContext(r.Context())
+	if !ok || accountType != "admin" {
+		httpx.Error(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	var req SiteModerationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Action != "approve" && req.Action != "reject" {
+		httpx.Error(w, http.StatusBadRequest, "Invalid action")
+		return
+	}
+
+	newStatus := "active"
+	if req.Action == "reject" {
+		newStatus = "rejected"
+	}
+
+	const query = `UPDATE sites SET status = $1 WHERE id = $2`
+	if _, err := h.db.Pool().Exec(r.Context(), query, newStatus, req.SiteID); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to update site")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{"status": newStatus})
+}
+
+func (h *AdminHandler) ListPendingCampaigns(w http.ResponseWriter, r *http.Request) {
+	accountType, ok := mw.AccountTypeFromContext(r.Context())
+	if !ok || accountType != "admin" {
+		httpx.Error(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	const query = `
+		SELECT id, advertiser_id, name, status, pricing_model, bid_amount_cents, 
+		       daily_budget_cents, total_budget_cents, created_at
+		FROM campaigns
+		WHERE status = 'pending'
+		ORDER BY created_at ASC
+	`
+
+	rows, err := h.db.Pool().Query(r.Context(), query)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	defer rows.Close()
+
+	var campaigns []map[string]interface{}
+	for rows.Next() {
+		var id, advertiserID uuid.UUID
+		var name, status, pricingModel string
+		var bidAmountCents, dailyBudgetCents, totalBudgetCents int
+		var createdAt time.Time
+		if err := rows.Scan(&id, &advertiserID, &name, &status, &pricingModel, &bidAmountCents,
+			&dailyBudgetCents, &totalBudgetCents, &createdAt); err != nil {
+			continue
+		}
+		campaigns = append(campaigns, map[string]interface{}{
+			"id":                 id,
+			"advertiser_id":      advertiserID,
+			"name":               name,
+			"status":             status,
+			"pricing_model":      pricingModel,
+			"bid_amount_cents":   bidAmountCents,
+			"daily_budget_cents": dailyBudgetCents,
+			"total_budget_cents": totalBudgetCents,
+			"created_at":         createdAt,
+		})
+	}
+
+	httpx.JSON(w, http.StatusOK, campaigns)
+}
+
+func (h *AdminHandler) ModerateCampaign(w http.ResponseWriter, r *http.Request) {
+	accountType, ok := mw.AccountTypeFromContext(r.Context())
+	if !ok || accountType != "admin" {
+		httpx.Error(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	var req CampaignModerationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Action != "approve" && req.Action != "reject" {
+		httpx.Error(w, http.StatusBadRequest, "Invalid action")
+		return
+	}
+
+	newStatus := "active"
+	if req.Action == "reject" {
+		newStatus = "rejected"
+	}
+
+	const query = `UPDATE campaigns SET status = $1 WHERE id = $2`
+	if _, err := h.db.Pool().Exec(r.Context(), query, newStatus, req.CampaignID); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to update campaign")
+		return
+	}
+
+	// Update Redis campaign metadata with new status
+	campaignMeta := map[string]string{
+		"status": newStatus,
+	}
+	if err := h.redis.SetCampaignMeta(r.Context(), req.CampaignID.String(), campaignMeta); err != nil {
+		// Log error but don't fail the request
+		// Redis update is best-effort
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{"status": newStatus})
+}
+
+func (h *AdminHandler) UpdateCampaignStatus(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	campaignID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid campaign ID")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Status != "active" && req.Status != "paused" && req.Status != "draft" {
+		httpx.Error(w, http.StatusBadRequest, "Invalid status")
+		return
+	}
+
+	if err := h.db.UpdateCampaignStatus(r.Context(), campaignID, req.Status); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to update campaign")
+		return
+	}
+
+	// Update Redis campaign metadata with new status
+	campaignMeta := map[string]string{
+		"status": req.Status,
+	}
+	if err := h.redis.SetCampaignMeta(r.Context(), campaignID.String(), campaignMeta); err != nil {
+		// Log error but don't fail the request
+		// Redis update is best-effort
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{"status": req.Status})
+}
+
+func (h *AdminHandler) UpdateAccountStatus(w http.ResponseWriter, r *http.Request) {
+	accountType, ok := mw.AccountTypeFromContext(r.Context())
+	if !ok || accountType != "admin" {
+		httpx.Error(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	vars := mux.Vars(r)
+	accountID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid account ID")
+		return
+	}
+
+	var req struct {
+		Status string `json:"status"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Status != "active" && req.Status != "suspended" {
+		httpx.Error(w, http.StatusBadRequest, "Invalid status")
+		return
+	}
+
+	const query = `UPDATE accounts SET status = $1 WHERE id = $2`
+	if _, err := h.db.Pool().Exec(r.Context(), query, req.Status, accountID); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to update account")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{"status": req.Status})
 }

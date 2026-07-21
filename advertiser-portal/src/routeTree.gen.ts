@@ -11,6 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AuthRegisterRouteImport } from './routes/auth.register'
+import { Route as AuthLoginRouteImport } from './routes/auth.login'
 import { Route as AppWalletRouteImport } from './routes/_app.wallet'
 import { Route as AppTargetingRouteImport } from './routes/_app.targeting'
 import { Route as AppSupportRouteImport } from './routes/_app.support'
@@ -31,6 +33,16 @@ const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
+} as any)
+const AuthRegisterRoute = AuthRegisterRouteImport.update({
+  id: '/auth/register',
+  path: '/auth/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthLoginRoute = AuthLoginRouteImport.update({
+  id: '/auth/login',
+  path: '/auth/login',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppWalletRoute = AppWalletRouteImport.update({
   id: '/wallet',
@@ -100,6 +112,8 @@ export interface FileRoutesByFullPath {
   '/support': typeof AppSupportRoute
   '/targeting': typeof AppTargetingRoute
   '/wallet': typeof AppWalletRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/register': typeof AuthRegisterRoute
   '/campaigns/new': typeof AppCampaignsNewRoute
 }
 export interface FileRoutesByTo {
@@ -113,6 +127,8 @@ export interface FileRoutesByTo {
   '/support': typeof AppSupportRoute
   '/targeting': typeof AppTargetingRoute
   '/wallet': typeof AppWalletRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/register': typeof AuthRegisterRoute
   '/': typeof AppIndexRoute
   '/campaigns/new': typeof AppCampaignsNewRoute
 }
@@ -129,6 +145,8 @@ export interface FileRoutesById {
   '/_app/support': typeof AppSupportRoute
   '/_app/targeting': typeof AppTargetingRoute
   '/_app/wallet': typeof AppWalletRoute
+  '/auth/login': typeof AuthLoginRoute
+  '/auth/register': typeof AuthRegisterRoute
   '/_app/': typeof AppIndexRoute
   '/_app/campaigns/new': typeof AppCampaignsNewRoute
 }
@@ -146,6 +164,8 @@ export interface FileRouteTypes {
     | '/support'
     | '/targeting'
     | '/wallet'
+    | '/auth/login'
+    | '/auth/register'
     | '/campaigns/new'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -159,6 +179,8 @@ export interface FileRouteTypes {
     | '/support'
     | '/targeting'
     | '/wallet'
+    | '/auth/login'
+    | '/auth/register'
     | '/'
     | '/campaigns/new'
   id:
@@ -174,12 +196,16 @@ export interface FileRouteTypes {
     | '/_app/support'
     | '/_app/targeting'
     | '/_app/wallet'
+    | '/auth/login'
+    | '/auth/register'
     | '/_app/'
     | '/_app/campaigns/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  AuthLoginRoute: typeof AuthLoginRoute
+  AuthRegisterRoute: typeof AuthRegisterRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -197,6 +223,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/auth/register': {
+      id: '/auth/register'
+      path: '/auth/register'
+      fullPath: '/auth/register'
+      preLoaderRoute: typeof AuthRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/login': {
+      id: '/auth/login'
+      path: '/auth/login'
+      fullPath: '/auth/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/wallet': {
       id: '/_app/wallet'
@@ -322,6 +362,8 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  AuthLoginRoute: AuthLoginRoute,
+  AuthRegisterRoute: AuthRegisterRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

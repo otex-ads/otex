@@ -78,10 +78,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PropelAds · Advertiser Console" },
+      { title: "OtexAds · Advertiser Console" },
       { name: "description", content: "Launch and optimize push, popunder, native, banner and interstitial ad campaigns with M-Pesa-funded budgets." },
-      { name: "author", content: "PropelAds" },
-      { property: "og:title", content: "PropelAds · Advertiser Console" },
+      { name: "author", content: "OtexAds" },
+      { property: "og:title", content: "OtexAds · Advertiser Console" },
       { property: "og:description", content: "Launch and optimize ad campaigns with M-Pesa-funded budgets." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -91,8 +91,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       {
         rel: "icon",
-        type: "image/svg+xml",
-        href: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%236366f1'/><text x='50' y='70' font-size='60' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'>S</text></svg>",
+        type: "image/png",
+        href: "/logo.png",
       },
       {
         rel: "stylesheet",

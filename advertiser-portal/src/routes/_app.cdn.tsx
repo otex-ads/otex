@@ -81,7 +81,7 @@ function CDNPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="provider">Provider</Label>
-            <Select value={provider} onValueChange={(v: any) => setProvider(v)}>
+            <Select value={provider} onValueChange={(v: "cloudflare" | "aws" | "local") => setProvider(v)}>
               <SelectTrigger id="provider">
                 <SelectValue />
               </SelectTrigger>

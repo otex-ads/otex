@@ -13,6 +13,11 @@ type Client struct {
 }
 
 func NewClient(addr string) (*Client, error) {
+	// Strip redis:// prefix if present
+	if len(addr) > 8 && addr[:8] == "redis://" {
+		addr = addr[8:]
+	}
+
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: "",

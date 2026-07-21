@@ -6,7 +6,8 @@ import { SurfaceCard, SectionLabel } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { EmptyState } from "@/components/EmptyState";
 import { Modal } from "@/components/Modal";
-import { store, useStore, type CreativeFormat } from "@/lib/store";
+import { store, useStore } from "@/lib/store";
+import { type CreativeFormat } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 
 export const Route = createFileRoute("/_app/creatives")({
@@ -16,7 +17,7 @@ export const Route = createFileRoute("/_app/creatives")({
 const FORMATS: CreativeFormat[] = ["push", "popunder", "native", "banner", "interstitial"];
 
 function CreativesPage() {
-  const creatives = useStore((s) => s.creatives);
+  const creatives = useStore((s) => s.creatives) || [];
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [format, setFormat] = useState<CreativeFormat>("push");

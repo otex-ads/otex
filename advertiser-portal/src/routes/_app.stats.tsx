@@ -17,8 +17,8 @@ const RANGES = [
 ];
 
 function StatsPage() {
-  const stats = useStore((s) => s.stats);
-  const campaigns = useStore((s) => s.campaigns);
+  const stats = useStore((s) => s.stats) || [];
+  const campaigns = useStore((s) => s.campaigns) || [];
   const [days, setDays] = useState(14);
   const [campaignId, setCampaignId] = useState<string>("all");
 

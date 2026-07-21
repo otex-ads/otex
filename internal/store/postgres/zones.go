@@ -196,6 +196,41 @@ func (db *DB) ListZonesBySite(ctx context.Context, siteID uuid.UUID) ([]*Zone, e
 	return zones, nil
 }
 
+func (db *DB) ListZonesByPublisher(ctx context.Context, publisherID uuid.UUID) ([]*Zone, error) {
+	const query = `
+		SELECT z.id, z.site_id, z.name, z.format, z.floor_price_cents, z.status, z.created_at
+		FROM zones z
+		INNER JOIN sites s ON z.site_id = s.id
+		WHERE s.publisher_id = $1
+		ORDER BY z.created_at DESC
+	`
+
+	rows, err := db.pool.Query(ctx, query, publisherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var zones []*Zone
+	for rows.Next() {
+		var zone Zone
+		if err := rows.Scan(
+			&zone.ID,
+			&zone.SiteID,
+			&zone.Name,
+			&zone.Format,
+			&zone.FloorPriceCents,
+			&zone.Status,
+			&zone.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		zones = append(zones, &zone)
+	}
+
+	return zones, nil
+}
+
 func (db *DB) UpdateZone(ctx context.Context, id uuid.UUID, name, format string, floorPriceCents int, status string) (*Zone, error) {
 	const query = `
 		UPDATE zones

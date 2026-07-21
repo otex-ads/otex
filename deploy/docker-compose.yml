@@ -7,13 +7,12 @@ services:
     environment:
       POSTGRES_DB: adnet
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../migrations:/docker-entrypoint-initdb.d:ro
+      - /opt/adnet/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -24,7 +23,7 @@ services:
     image: redis:7-alpine
     container_name: adnet-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -37,9 +36,9 @@ services:
       dockerfile: deploy/Dockerfile.api
     container_name: adnet-api
     environment:
-      POSTGRES_URL: postgres://postgres:postgres@postgres:5432/adnet?sslmode=disable
+      POSTGRES_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/adnet?sslmode=disable
       REDIS_URL: redis:6379
-      JWT_SECRET: dev-secret-key-change-in-production
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
       PORT: 8080
     ports:
       - "8080:8080"
@@ -57,7 +56,7 @@ services:
     container_name: adnet-adserve
     environment:
       REDIS_URL: redis:6379
-      JWT_SECRET: dev-secret-key-change-in-production
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
       PORT: 8081
     ports:
       - "8081:8081"
@@ -73,7 +72,7 @@ services:
     container_name: adnet-eventd
     environment:
       REDIS_URL: redis:6379
-      POSTGRES_URL: postgres://postgres:postgres@postgres:5432/adnet?sslmode=disable
+      POSTGRES_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/adnet?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,7 +87,7 @@ services:
     container_name: adnet-reconciler
     environment:
       REDIS_URL: redis:6379
-      POSTGRES_URL: postgres://postgres:postgres@postgres:5432/adnet?sslmode=disable
+      POSTGRES_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/adnet?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
@@ -102,7 +101,7 @@ services:
       dockerfile: deploy/Dockerfile.billingd
     container_name: adnet-billingd
     environment:
-      POSTGRES_URL: postgres://postgres:postgres@postgres:5432/adnet?sslmode=disable
+      POSTGRES_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/adnet?sslmode=disable
       MPESA_CONSUMER_KEY: ${MPESA_CONSUMER_KEY:-}
       MPESA_CONSUMER_SECRET: ${MPESA_CONSUMER_SECRET:-}
       MPESA_ENVIRONMENT: ${MPESA_ENVIRONMENT:-sandbox}

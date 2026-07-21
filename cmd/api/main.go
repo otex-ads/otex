@@ -89,6 +89,7 @@ func main() {
 	protected.HandleFunc("/sites", zoneHandler.ListSites).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/sites", zoneHandler.CreateSite).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/sites/{id}/zones", zoneHandler.CreateZone).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/zones", zoneHandler.ListZones).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/zones/{id}", zoneHandler.GetZone).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/zones/{id}/stats", zoneHandler.GetZoneStats).Methods("GET", "OPTIONS")
 
@@ -103,16 +104,21 @@ func main() {
 	payoutHandler := NewPayoutHandler(db, redisClient)
 	protected.HandleFunc("/payouts", payoutHandler.RequestPayout).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/payouts", payoutHandler.ListPayouts).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/payouts/balance", payoutHandler.GetBalance).Methods("GET", "OPTIONS")
 
 	// Admin routes (admin only)
 	adminHandler := NewAdminHandler(db, redisClient)
+	protected.HandleFunc("/admin/stats", adminHandler.GetStats).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/admin/users", adminHandler.ListUsers).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/admin/campaigns", adminHandler.ListCampaigns).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/admin/campaigns/{id}/status", adminHandler.UpdateCampaignStatus).Methods("PATCH", "OPTIONS")
+	protected.HandleFunc("/admin/accounts/{id}/status", adminHandler.UpdateAccountStatus).Methods("PATCH", "OPTIONS")
 	protected.HandleFunc("/admin/creatives/pending", adminHandler.ListPendingCreatives).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/admin/creatives/moderate", adminHandler.ModerateCreative).Methods("POST", "OPTIONS")
-	protected.HandleFunc("/admin/accounts", adminHandler.ListAccounts).Methods("GET", "OPTIONS")
-	protected.HandleFunc("/admin/accounts/{id}/status", adminHandler.UpdateAccountStatus).Methods("PATCH", "OPTIONS")
-	protected.HandleFunc("/admin/analytics", adminHandler.GetAnalytics).Methods("GET", "OPTIONS")
-	protected.HandleFunc("/admin/dashboard", adminHandler.GetRealtimeDashboard).Methods("GET", "OPTIONS")
-	protected.HandleFunc("/admin/cohort-analysis", adminHandler.GetCohortAnalysis).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/admin/sites/pending", adminHandler.ListPendingSites).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/admin/sites/moderate", adminHandler.ModerateSite).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/admin/campaigns/pending", adminHandler.ListPendingCampaigns).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/admin/campaigns/moderate", adminHandler.ModerateCampaign).Methods("POST", "OPTIONS")
 
 	// Marketplace routes (interconnection between advertisers and publishers)
 	marketplaceHandler := NewMarketplaceHandler(db)
@@ -122,7 +128,7 @@ func main() {
 
 	// Configure CORS to allow requests from both portals
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://167.233.171.202:3000", "http://167.233.171.202:3001", "http://localhost:3000", "http://localhost:3001", "https://advertiser.otexads.com", "https://publisher.otexads.com", "https://api.otexads.com", "https://otexads.com", "https://www.otexads.com"},
+		AllowedOrigins:   []string{"http://167.233.171.202:3000", "http://167.233.171.202:3001", "http://167.233.171.202:3003", "http://localhost:3000", "http://localhost:3001", "http://localhost:3003", "https://advertiser.otexads.com", "https://publisher.otexads.com", "https://admin.otexads.com", "https://api.otexads.com", "https://otexads.com", "https://www.otexads.com"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,

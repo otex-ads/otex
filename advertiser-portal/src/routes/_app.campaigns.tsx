@@ -12,7 +12,7 @@ export const Route = createFileRoute("/_app/campaigns")({
 });
 
 function CampaignsPage() {
-  const campaigns = useStore((s) => s.campaigns);
+  const campaigns = useStore((s) => s.campaigns) || [];
 
   return (
     <div>

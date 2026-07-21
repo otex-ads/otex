@@ -170,6 +170,16 @@ func (h *AdserveHandler) ServeAd(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		// Check campaign approval status - only serve active (approved) campaigns
+		if campaignMeta["status"] != "active" {
+			continue
+		}
+
+		// Check creative approval status - only serve approved creatives
+		if campaignMeta["creative_status"] != "approved" {
+			continue
+		}
+
 		// Check format match
 		if campaignMeta["format"] != format {
 			continue

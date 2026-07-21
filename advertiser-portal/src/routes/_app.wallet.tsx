@@ -14,20 +14,20 @@ export const Route = createFileRoute("/_app/wallet")({
 const QUICK = [500, 1000, 5000, 10000, 25000];
 
 function WalletPage() {
-  const balance = useStore((s) => s.balance);
-  const wallet = useStore((s) => s.wallet);
+  const balance = useStore((s) => s.balance) || 0;
+  const wallet = useStore((s) => s.wallet) || [];
   const [amount, setAmount] = useState<number>(1000);
   const [phone, setPhone] = useState<string>("");
   const [pending, setPending] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phone.match(/^(?:\+?254|0)?7\d{8}$/)) return toast.error("Enter a valid Kenyan mobile number");
     if (amount < 10) return toast.error("Minimum top-up is KES 10");
     setPending(true);
     toast.loading("STK push sent — approve on your phone", { id: "mpesa" });
-    setTimeout(() => {
-      const tx = store.topUp(amount, phone);
+    setTimeout(async () => {
+      const tx = await store.topUp(amount, phone);
       setPending(false);
       toast.success(`Top-up successful · ${tx.reference}`, { id: "mpesa" });
     }, 1600);

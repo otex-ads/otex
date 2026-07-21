@@ -3,7 +3,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { SurfaceCard, SectionLabel } from "@/components/Card";
-import { store, useStore, type CreativeFormat, type PricingModel } from "@/lib/store";
+import { store, useStore } from "@/lib/store";
+import { type CreativeFormat, type PricingModel } from "@/lib/api";
 
 export const Route = createFileRoute("/_app/campaigns/new")({
   component: NewCampaignPage,
@@ -37,7 +38,7 @@ function Chip({ selected, onClick, children }: { selected: boolean; onClick: () 
 
 function NewCampaignPage() {
   const nav = useNavigate();
-  const creatives = useStore((s) => s.creatives);
+  const creatives = useStore((s) => s.creatives) || [];
 
   const [name, setName] = useState("");
   const [format, setFormat] = useState<CreativeFormat>("push");
@@ -54,18 +55,23 @@ function NewCampaignPage() {
     setter(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return toast.error("Name is required");
     if (countries.length === 0) return toast.error("Pick at least one country");
-    store.addCampaign({
-      name: name.trim(),
-      format, pricingModel, bid, dailyBudget, totalBudget,
-      targeting: { countries, devices, os },
-      creativeId: creativeId || undefined,
-    });
-    toast.success("Campaign launched");
-    nav({ to: "/campaigns" });
+    try {
+      await store.addCampaign({
+        name: name.trim(),
+        format, pricingModel, bid, dailyBudget, totalBudget,
+        targeting: { countries, devices, os },
+        creativeId: creativeId || undefined,
+      });
+      toast.success("Campaign launched");
+      nav({ to: "/campaigns" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to create campaign";
+      toast.error(msg);
+    }
   };
 
   return (

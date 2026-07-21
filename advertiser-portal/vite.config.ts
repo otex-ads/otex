@@ -14,5 +14,6 @@ export default defineConfig({
   },
   nitro: {
     preset: "node-server",
+    port: 3000,
   },
 });

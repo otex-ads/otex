@@ -1,12 +1,13 @@
 import { createFileRoute, Outlet, Link, useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard, Megaphone, ImageIcon, Wallet, BarChart3, Menu, X, Zap, Plus, Globe, Target, Shield, MessageSquare, FileText,
+  LayoutDashboard, Megaphone, ImageIcon, Wallet, BarChart3, Menu, X, Plus, Globe, Target, Shield, MessageSquare, FileText, LogOut,
 } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { KES } from "@/lib/format";
 import { useInit } from "@/hooks/useInit";
+import { clearToken } from "@/lib/api";
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -47,17 +48,20 @@ function NavItem({ to, label, icon: Icon, exact, onClick }: {
 
 function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const balance = useStore((s) => s.balance);
+  const balance = useStore((s) => s.balance) || 0;
   useInit();
+
+  const handleLogout = () => {
+    clearToken();
+    window.location.href = "/auth/login";
+  };
 
   const Sidebar = ({ onNav }: { onNav?: () => void }) => (
     <>
       <Link to="/" onClick={onNav} className="mb-8 flex items-center gap-2.5">
-        <div className="grid size-9 place-items-center rounded-lg bg-primary text-primary-foreground">
-          <Zap className="size-4" />
-        </div>
+        <img src="/logo.png" alt="OtexAds" className="size-9 object-contain" />
         <div className="leading-tight">
-          <div className="text-sm font-bold text-foreground">PropelAds</div>
+          <div className="text-sm font-bold text-foreground">OtexAds</div>
           <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Advertiser</div>
         </div>
       </Link>
@@ -65,12 +69,21 @@ function AppLayout() {
       <nav className="flex flex-col gap-0.5">
         {menu.map((m) => <NavItem key={m.to} {...m} onClick={onNav} />)}
       </nav>
-      <div className="mt-auto rounded-xl bg-muted/60 p-4 text-xs">
-        <div className="label-eyebrow">Wallet balance</div>
-        <div className="num mt-1 text-lg font-semibold text-foreground">{KES(balance)}</div>
-        <Link to="/wallet" onClick={onNav} className="mt-2 inline-flex items-center gap-1 text-primary hover:underline">
-          <Plus className="size-3" /> Top up
-        </Link>
+      <div className="mt-auto flex flex-col gap-3">
+        <div className="rounded-xl bg-muted/60 p-4 text-xs">
+          <div className="label-eyebrow">Wallet balance</div>
+          <div className="num mt-1 text-lg font-semibold text-foreground">{KES(balance)}</div>
+          <Link to="/wallet" onClick={onNav} className="mt-2 inline-flex items-center gap-1 text-primary hover:underline">
+            <Plus className="size-3" /> Top up
+          </Link>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+        >
+          <LogOut className="size-4" />
+          <span className="font-medium">Sign out</span>
+        </button>
       </div>
     </>
   );

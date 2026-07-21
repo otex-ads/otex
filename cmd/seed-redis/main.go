@@ -39,13 +39,15 @@ func main() {
 	// Seed a test campaign
 	campaignID := "660e8400-e29b-41d4-a716-446655440000"
 	campaignMeta := map[string]string{
-		"bid_cents":   "500",
-		"format":      "banner",
-		"creative_id": "770e8400-e29b-41d4-a716-446655440000",
-		"title":       "Test Ad",
-		"body":        "This is a test advertisement",
-		"image_url":   "https://example.com/ad.jpg",
-		"click_url":   "https://example.com/landing",
+		"bid_cents":      "500",
+		"format":         "banner",
+		"creative_id":    "770e8400-e29b-41d4-a716-446655440000",
+		"title":          "Test Ad",
+		"body":           "This is a test advertisement",
+		"image_url":      "https://example.com/ad.jpg",
+		"click_url":      "https://example.com/landing",
+		"status":         "active",
+		"creative_status": "approved",
 	}
 	if err := redisClient.SetCampaignMeta(ctx, campaignID, campaignMeta); err != nil {
 		log.Fatalf("Failed to set campaign meta: %v", err)
