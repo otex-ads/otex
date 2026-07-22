@@ -14,50 +14,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Build Advertiser Portal
-        run: |
-          if [ -d "advertiser-portal" ]; then
-            cd advertiser-portal
-            npm install
-            npm run build
-          else
-            echo "advertiser-portal directory not found"
-            exit 1
-          fi
-
-      - name: Build Publisher Portal
-        run: |
-          if [ -d "publisher-portal" ]; then
-            cd publisher-portal
-            npm install
-            npm run build
-          else
-            echo "publisher-portal directory not found"
-            exit 1
-          fi
-
-      - name: Build Admin Portal
-        run: |
-          if [ -d "admin-portal" ]; then
-            cd admin-portal
-            npm install
-            npm run build
-          else
-            echo "admin-portal directory not found"
-            exit 1
-          fi
-
-      - name: Verify builds
-        run: |
-          ls -la advertiser-portal/.output || exit 1
-          ls -la publisher-portal/.output || exit 1
-          ls -la admin-portal/.output || exit 1
-
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -77,15 +33,14 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/adnet/deploy && docker compose exec -e PGPASSWORD=NkdTLkQHwFKYpfQIL4TgRalTPPpqAzq8 -T postgres psql -U postgres -d adnet < ../migrations/000002_payment_ledger.up.sql || true"
 
-      - name: Deploy All Portals
+      - name: Build and Deploy Portals on VPS
         run: |
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf /opt/advertiser-portal/.output /opt/publisher-portal/.output /opt/admin-portal/.output || true"
-          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r advertiser-portal/.output ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/advertiser-portal/
-          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r publisher-portal/.output ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/publisher-portal/
-          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r admin-portal/.output ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/admin-portal/
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "pkill -f 'advertiser-portal' || true"
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "pkill -f 'publisher-portal' || true"
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "pkill -f 'admin-portal' || true"
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/advertiser-portal && nohup node .output/server/index.mjs > advertiser-portal.log 2>&1 &"
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/publisher-portal && nohup node .output/server/index.mjs > publisher-portal.log 2>&1 &"
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/admin-portal && nohup node .output/server/index.mjs > admin-portal.log 2>&1 &"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/adnet/advertiser-portal && npm install && npm run build"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/adnet/publisher-portal && npm install && npm run build"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/adnet/admin-portal && npm install && npm run build"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "pkill -f 'advertiser-portal' || true"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "pkill -f 'publisher-portal' || true"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "pkill -f 'admin-portal' || true"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/advertiser-portal && nohup node .output/server/index.mjs > advertiser-portal.log 2>&1 &"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/publisher-portal && nohup node .output/server/index.mjs > publisher-portal.log 2>&1 &"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/admin-portal && nohup node .output/server/index.mjs > admin-portal.log 2>&1 &"
