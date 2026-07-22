@@ -52,6 +52,12 @@ jobs:
             exit 1
           fi
 
+      - name: Verify builds
+        run: |
+          ls -la advertiser-portal/.output || exit 1
+          ls -la publisher-portal/.output || exit 1
+          ls -la admin-portal/.output || exit 1
+
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
