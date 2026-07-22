@@ -22,19 +22,19 @@ jobs:
       - name: Build Advertiser Portal
         run: |
           cd advertiser-portal
-          npm ci
+          npm install
           npm run build
 
       - name: Build Publisher Portal
         run: |
           cd publisher-portal
-          npm ci
+          npm install
           npm run build
 
       - name: Build Admin Portal
         run: |
           cd admin-portal
-          npm ci
+          npm install
           npm run build
 
       - name: Setup SSH
