@@ -70,3 +70,24 @@ jobs:
       - name: Run database migrations
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/adnet/deploy && docker compose exec -e PGPASSWORD=NkdTLkQHwFKYpfQIL4TgRalTPPpqAzq8 -T postgres psql -U postgres -d adnet < ../migrations/000002_payment_ledger.up.sql || true"
+
+      - name: Deploy Advertiser Portal
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf /opt/advertiser-portal/.output || true"
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r advertiser-portal/.output ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/advertiser-portal/
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "pkill -f 'advertiser-portal' || true"
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/advertiser-portal && nohup node .output/server/index.mjs > advertiser-portal.log 2>&1 &"
+
+      - name: Deploy Publisher Portal
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf /opt/publisher-portal/.output || true"
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r publisher-portal/.output ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/publisher-portal/
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "pkill -f 'publisher-portal' || true"
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/publisher-portal && nohup node .output/server/index.mjs > publisher-portal.log 2>&1 &"
+
+      - name: Deploy Admin Portal
+        run: |
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "rm -rf /opt/admin-portal/.output || true"
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r admin-portal/.output ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/opt/admin-portal/
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "pkill -f 'admin-portal' || true"
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/admin-portal && nohup node .output/server/index.mjs > admin-portal.log 2>&1 &"
