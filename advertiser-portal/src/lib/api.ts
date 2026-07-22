@@ -39,13 +39,19 @@ export interface Creative {
 
 export interface WalletTx {
   id: string;
-  type: "topup" | "spend";
+  type: "topup" | "spend" | "payout" | "refund";
   amount: number;
-  method?: "mpesa";
+  method?: string;
   phone?: string;
   reference: string;
   campaignId?: string;
   createdAt: string;
+}
+
+export interface TopUpResponse {
+  authorization_url: string;
+  reference: string;
+  access_code: string;
 }
 
 export interface DailyStat {
@@ -195,18 +201,32 @@ class ApiClient {
   }
 
   async getWallet(): Promise<{ balance: number }> {
-    return this.request<{ balance: number }>("/api/v1/wallet");
+    const data = await this.request<any>("/api/v1/wallet");
+    return { balance: (data.balance_cents ?? data.balance ?? 0) / 100 };
   }
 
-  async topUpWallet(data: { amount: number; phone: string }): Promise<WalletTx> {
-    return this.request<WalletTx>("/api/v1/wallet/topup", {
+  async topUpWallet(data: { amount_cents: number; email: string; channel?: string }): Promise<TopUpResponse> {
+    return this.request<TopUpResponse>("/api/v1/wallet/topup", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
+  async verifyTopUp(reference: string): Promise<{ status: string; amount: number; new_balance: number }> {
+    return this.request<{ status: string; amount: number; new_balance: number }>(
+      `/api/v1/wallet/verify?reference=${encodeURIComponent(reference)}`
+    );
+  }
+
   async getTransactions(): Promise<WalletTx[]> {
-    return this.request<WalletTx[]>("/api/v1/wallet/transactions");
+    const txs = await this.request<any[]>("/api/v1/wallet/transactions");
+    return (txs || []).map((t: any) => ({
+      id: t.id,
+      type: t.type,
+      amount: (t.amount_cents ?? 0) / 100,
+      reference: t.reference || '',
+      createdAt: t.created_at || t.createdAt || '',
+    }));
   }
 
   async getStats(): Promise<DailyStat[]> {

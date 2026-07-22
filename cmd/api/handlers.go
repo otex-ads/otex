@@ -685,7 +685,7 @@ func (h *WalletHandler) TopUp(w http.ResponseWriter, r *http.Request) {
 		Email:       req.Email,
 		Currency:    "KES",
 		Reference:   reference,
-		CallbackURL: "https://api.yourdomain.com/api/v1/wallet/callback",
+		CallbackURL: "https://advertiser.otexads.com/wallet?verify=true",
 		Metadata: map[string]interface{}{
 			"account_id": accountID.String(),
 			"type":       "wallet_topup",
@@ -759,18 +759,24 @@ func (h *WalletHandler) VerifyTopUp(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Add funds to wallet
-	newBalance := wallet.BalanceCents + paystackResp.Data.Amount
-	_, err = h.db.UpdateWalletBalance(r.Context(), accountID, newBalance)
+	// Add funds to wallet (delta-based)
+	_, err = h.db.UpdateWalletBalance(r.Context(), accountID, paystackResp.Data.Amount)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "Failed to update wallet")
 		return
 	}
 
+	// Re-fetch updated balance
+	updatedWallet, _ := h.db.GetWallet(r.Context(), accountID)
+	newBal := int64(0)
+	if updatedWallet != nil {
+		newBal = updatedWallet.BalanceCents
+	}
+
 	httpx.JSON(w, http.StatusOK, map[string]interface{}{
 		"status":      "success",
 		"amount":      paystackResp.Data.Amount,
-		"new_balance": newBalance,
+		"new_balance": newBal,
 	})
 }
 
@@ -792,15 +798,16 @@ func (h *WalletHandler) GetTransactions(w http.ResponseWriter, r *http.Request) 
 }
 
 type PayoutHandler struct {
-	db    *postgres.DB
-	redis *redis.Client
+	db       *postgres.DB
+	redis    *redis.Client
+	paystack *billing.PaystackClient
 }
 
-func NewPayoutHandler(db *postgres.DB, redisClient *redis.Client) *PayoutHandler {
-	return &PayoutHandler{db: db, redis: redisClient}
+func NewPayoutHandler(db *postgres.DB, redisClient *redis.Client, paystack *billing.PaystackClient) *PayoutHandler {
+	return &PayoutHandler{db: db, redis: redisClient, paystack: paystack}
 }
 
-type PayoutRequest struct {
+type PayoutRequestBody struct {
 	AmountCents int64 `json:"amount_cents"`
 }
 
@@ -811,7 +818,7 @@ func (h *PayoutHandler) RequestPayout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req PayoutRequest
+	var req PayoutRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
 		return
@@ -838,6 +845,47 @@ func (h *PayoutHandler) RequestPayout(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "Failed to create payout request")
 		return
+	}
+
+	// Lock funds by deducting from wallet
+	_, err = h.db.UpdateWalletBalance(r.Context(), accountID, -req.AmountCents)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to lock funds")
+		return
+	}
+
+	// Record the payout transaction
+	ref := fmt.Sprintf("payout-%s", payout.ID.String())
+	h.db.CreateTransaction(r.Context(), accountID, "payout", -req.AmountCents, &ref)
+
+	// If Paystack is configured, initiate transfer
+	if h.paystack != nil {
+		recipient, err := h.db.GetDefaultTransferRecipient(r.Context(), accountID)
+		if err == nil && recipient != nil {
+			paystackRef := fmt.Sprintf("adnet-payout-%s-%d", payout.ID.String(), time.Now().Unix())
+
+			transferResp, err := h.paystack.InitiateTransfer(billing.InitiateTransferRequest{
+				Source:    "balance",
+				Amount:    req.AmountCents,
+				Recipient: recipient.RecipientCode,
+				Reason:    "Publisher payout",
+				Reference: paystackRef,
+			})
+
+			if err != nil {
+				// Transfer initiation failed — refund wallet, mark failed
+				h.db.UpdateWalletBalance(r.Context(), accountID, req.AmountCents)
+				h.db.UpdatePayoutRequestStatus(r.Context(), payout.ID, "failed", nil)
+				refundRef := fmt.Sprintf("refund-%s", paystackRef)
+				h.db.CreateTransaction(r.Context(), accountID, "refund", req.AmountCents, &refundRef)
+				httpx.Error(w, http.StatusInternalServerError, "Failed to initiate transfer: "+err.Error())
+				return
+			}
+
+			// Update payout with Paystack details
+			h.db.UpdatePayoutWithPaystack(r.Context(), payout.ID, "processing",
+				transferResp.Data.TransferCode, paystackRef, recipient.RecipientCode)
+		}
 	}
 
 	httpx.JSON(w, http.StatusCreated, payout)
@@ -1874,38 +1922,3 @@ func (h *AdminHandler) UpdateCampaignStatus(w http.ResponseWriter, r *http.Reque
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": req.Status})
 }
 
-func (h *AdminHandler) UpdateAccountStatus(w http.ResponseWriter, r *http.Request) {
-	accountType, ok := mw.AccountTypeFromContext(r.Context())
-	if !ok || accountType != "admin" {
-		httpx.Error(w, http.StatusForbidden, "Admin access required")
-		return
-	}
-
-	vars := mux.Vars(r)
-	accountID, err := uuid.Parse(vars["id"])
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "Invalid account ID")
-		return
-	}
-
-	var req struct {
-		Status string `json:"status"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
-		return
-	}
-
-	if req.Status != "active" && req.Status != "suspended" {
-		httpx.Error(w, http.StatusBadRequest, "Invalid status")
-		return
-	}
-
-	const query = `UPDATE accounts SET status = $1 WHERE id = $2`
-	if _, err := h.db.Pool().Exec(r.Context(), query, req.Status, accountID); err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "Failed to update account")
-		return
-	}
-
-	httpx.JSON(w, http.StatusOK, map[string]string{"status": req.Status})
-}

@@ -39,6 +39,7 @@ services:
       POSTGRES_URL: postgres://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/adnet?sslmode=disable
       REDIS_URL: redis:6379
       JWT_SECRET: ${JWT_SECRET:-dev-secret-key-change-in-production}
+      PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
       PORT: 8080
     ports:
       - "8080:8080"

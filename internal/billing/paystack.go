@@ -218,6 +218,198 @@ func (p *PaystackClient) CreateCustomer(req CreateCustomerRequest) (*CreateCusto
 	return &result, nil
 }
 
+// GetSecretKey returns the secret key for webhook verification
+func (p *PaystackClient) GetSecretKey() string {
+	return p.secretKey
+}
+
+// --- Transfer Recipients ---
+
+// CreateTransferRecipientRequest represents the request to create a transfer recipient
+type CreateTransferRecipientRequest struct {
+	Type     string `json:"type"`      // mobile_money, nuban, basa, etc.
+	Name     string `json:"name"`
+	Phone    string `json:"phone,omitempty"`
+	Email    string `json:"email,omitempty"`
+	Currency string `json:"currency"`
+	BankCode string `json:"bank_code,omitempty"` // e.g. MPESA
+}
+
+// CreateTransferRecipientResponse represents the response from creating a transfer recipient
+type CreateTransferRecipientResponse struct {
+	Status  bool   `json:"status"`
+	Message string `json:"message"`
+	Data    struct {
+		Active        bool   `json:"active"`
+		Currency      string `json:"currency"`
+		Domain        string `json:"domain"`
+		ID            int64  `json:"id"`
+		Name          string `json:"name"`
+		RecipientCode string `json:"recipient_code"`
+		Type          string `json:"type"`
+		CreatedAt     string `json:"created_at"`
+	} `json:"data"`
+}
+
+// CreateTransferRecipient creates a transfer recipient in Paystack
+func (p *PaystackClient) CreateTransferRecipient(req CreateTransferRecipientRequest) (*CreateTransferRecipientResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", p.baseURL+"/transferrecipient", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+p.secretKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("Paystack API error: %s", string(respBody))
+	}
+
+	var result CreateTransferRecipientResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if !result.Status {
+		return nil, fmt.Errorf("Paystack error: %s", result.Message)
+	}
+
+	return &result, nil
+}
+
+// --- Transfers ---
+
+// InitiateTransferRequest represents the request to initiate a transfer
+type InitiateTransferRequest struct {
+	Source    string `json:"source"`    // "balance"
+	Amount   int64  `json:"amount"`    // in subunits (cents/kobo)
+	Recipient string `json:"recipient"` // RCP_xxxx
+	Reason   string `json:"reason"`
+	Reference string `json:"reference"`
+}
+
+// InitiateTransferResponse represents the response from initiating a transfer
+type InitiateTransferResponse struct {
+	Status  bool   `json:"status"`
+	Message string `json:"message"`
+	Data    struct {
+		ID            int64  `json:"id"`
+		TransferCode  string `json:"transfer_code"`
+		Amount        int64  `json:"amount"`
+		Currency      string `json:"currency"`
+		Status        string `json:"status"`
+		Reference     string `json:"reference"`
+		Recipient     int64  `json:"recipient"`
+		CreatedAt     string `json:"created_at"`
+	} `json:"data"`
+}
+
+// InitiateTransfer initiates a transfer to a recipient
+func (p *PaystackClient) InitiateTransfer(req InitiateTransferRequest) (*InitiateTransferResponse, error) {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", p.baseURL+"/transfer", bytes.NewBuffer(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+p.secretKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("Paystack API error: %s", string(respBody))
+	}
+
+	var result InitiateTransferResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if !result.Status {
+		return nil, fmt.Errorf("Paystack error: %s", result.Message)
+	}
+
+	return &result, nil
+}
+
+// --- Balance ---
+
+// BalanceResponse represents the response from getting the Paystack balance
+type BalanceResponse struct {
+	Status  bool   `json:"status"`
+	Message string `json:"message"`
+	Data    []struct {
+		Currency string `json:"currency"`
+		Balance  int64  `json:"balance"`
+	} `json:"data"`
+}
+
+// GetBalance fetches the current Paystack account balance
+func (p *PaystackClient) GetBalance() (*BalanceResponse, error) {
+	httpReq, err := http.NewRequest("GET", p.baseURL+"/balance", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	httpReq.Header.Set("Authorization", "Bearer "+p.secretKey)
+
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Paystack API error: %s", string(respBody))
+	}
+
+	var result BalanceResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if !result.Status {
+		return nil, fmt.Errorf("Paystack error: %s", result.Message)
+	}
+
+	return &result, nil
+}
+
 // BanksResponse represents the response from listing banks
 type BanksResponse struct {
 	Status  bool `json:"status"`

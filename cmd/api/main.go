@@ -101,10 +101,16 @@ func main() {
 	protected.HandleFunc("/wallet/transactions", walletHandler.GetTransactions).Methods("GET", "OPTIONS")
 
 	// Payout routes (publisher only)
-	payoutHandler := NewPayoutHandler(db, redisClient)
+	payoutHandler := NewPayoutHandler(db, redisClient, paystackClient)
 	protected.HandleFunc("/payouts", payoutHandler.RequestPayout).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/payouts", payoutHandler.ListPayouts).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/payouts/balance", payoutHandler.GetBalance).Methods("GET", "OPTIONS")
+
+	// Transfer recipient routes (publisher only)
+	recipientHandler := NewRecipientHandler(db, paystackClient)
+	protected.HandleFunc("/recipients", recipientHandler.SaveRecipient).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/recipients", recipientHandler.ListRecipients).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/recipients/default", recipientHandler.GetDefault).Methods("GET", "OPTIONS")
 
 	// Admin routes (admin only)
 	adminHandler := NewAdminHandler(db, redisClient)
@@ -119,6 +125,18 @@ func main() {
 	protected.HandleFunc("/admin/sites/moderate", adminHandler.ModerateSite).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/admin/campaigns/pending", adminHandler.ListPendingCampaigns).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/admin/campaigns/moderate", adminHandler.ModerateCampaign).Methods("POST", "OPTIONS")
+
+	// Admin financial routes
+	financialHandler := NewFinancialHandler(db, paystackClient)
+	protected.HandleFunc("/admin/financials", financialHandler.GetFinancials).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/admin/financials/gateway-balance", financialHandler.GetGatewayBalance).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/admin/financials/deposits", financialHandler.ListDeposits).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/admin/financials/payouts", financialHandler.ListAllPayouts).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/admin/financials/payouts/{id}/retry", financialHandler.RetryPayout).Methods("POST", "OPTIONS")
+
+	// Webhook route (unauthenticated — signature-verified)
+	webhookHandler := NewWebhookHandler(db, redisClient, paystackClient)
+	api.HandleFunc("/webhooks/paystack", webhookHandler.PaystackWebhook).Methods("POST")
 
 	// Marketplace routes (interconnection between advertisers and publishers)
 	marketplaceHandler := NewMarketplaceHandler(db)

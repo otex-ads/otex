@@ -74,10 +74,24 @@ export const store = {
   removeCreative(id: string) {
     set((s) => ({ ...s, creatives: s.creatives.filter((c) => c.id !== id) }));
   },
-  async topUp(amount: number, phone: string) {
-    const tx = await api.topUpWallet({ amount, phone });
-    set((s) => ({ ...s, balance: s.balance + amount, wallet: [tx, ...s.wallet] }));
-    return tx;
+  async topUp(amountKES: number, email: string, channel?: string) {
+    const resp = await api.topUpWallet({
+      amount_cents: Math.round(amountKES * 100),
+      email,
+      channel,
+    });
+    // Redirect user to Paystack checkout
+    if (resp.authorization_url) {
+      window.location.href = resp.authorization_url;
+    }
+    return resp;
+  },
+  async verifyTopUp(reference: string) {
+    const resp = await api.verifyTopUp(reference);
+    if (resp.status === "success") {
+      set((s) => ({ ...s, balance: resp.new_balance / 100 }));
+    }
+    return resp;
   },
 };
 
