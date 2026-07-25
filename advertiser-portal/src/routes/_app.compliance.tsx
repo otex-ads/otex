@@ -81,7 +81,9 @@ function CompliancePage() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Enable GDPR Consent</Label>
-              <p className="text-sm text-muted-foreground">Require user consent for data processing</p>
+              <p className="text-sm text-muted-foreground">
+                Require user consent for data processing
+              </p>
             </div>
             <Switch checked={gdprEnabled} onCheckedChange={setGdprEnabled} />
           </div>
@@ -114,7 +116,9 @@ function CompliancePage() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Enable CCPA Opt-Out</Label>
-              <p className="text-sm text-muted-foreground">Allow California users to opt out of data sale</p>
+              <p className="text-sm text-muted-foreground">
+                Allow California users to opt out of data sale
+              </p>
             </div>
             <Switch checked={ccpaEnabled} onCheckedChange={setCcpaEnabled} />
           </div>

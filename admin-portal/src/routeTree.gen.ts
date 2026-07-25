@@ -23,6 +23,7 @@ import { Route as AppRevenueRouteImport } from './routes/_app.revenue'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
 import { Route as AppPayoutsRouteImport } from './routes/_app.payouts'
 import { Route as AppCampaignsRouteImport } from './routes/_app.campaigns'
+import { Route as AppApprovalsRouteImport } from './routes/_app.approvals'
 import { Route as AppAnalyticsRouteImport } from './routes/_app.analytics'
 import { Route as AppAdcodeRouteImport } from './routes/_app.adcode'
 import { Route as AppZonesZoneIdRouteImport } from './routes/_app.zones.$zoneId'
@@ -97,6 +98,11 @@ const AppCampaignsRoute = AppCampaignsRouteImport.update({
   path: '/campaigns',
   getParentRoute: () => AppRoute,
 } as any)
+const AppApprovalsRoute = AppApprovalsRouteImport.update({
+  id: '/approvals',
+  path: '/approvals',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAnalyticsRoute = AppAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -122,6 +128,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/adcode': typeof AppAdcodeRoute
   '/analytics': typeof AppAnalyticsRoute
+  '/approvals': typeof AppApprovalsRoute
   '/campaigns': typeof AppCampaignsRoute
   '/payouts': typeof AppPayoutsRoute
   '/reports': typeof AppReportsRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/adcode': typeof AppAdcodeRoute
   '/analytics': typeof AppAnalyticsRoute
+  '/approvals': typeof AppApprovalsRoute
   '/campaigns': typeof AppCampaignsRoute
   '/payouts': typeof AppPayoutsRoute
   '/reports': typeof AppReportsRoute
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteWithChildren
   '/_app/adcode': typeof AppAdcodeRoute
   '/_app/analytics': typeof AppAnalyticsRoute
+  '/_app/approvals': typeof AppApprovalsRoute
   '/_app/campaigns': typeof AppCampaignsRoute
   '/_app/payouts': typeof AppPayoutsRoute
   '/_app/reports': typeof AppReportsRoute
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/'
     | '/adcode'
     | '/analytics'
+    | '/approvals'
     | '/campaigns'
     | '/payouts'
     | '/reports'
@@ -201,6 +211,7 @@ export interface FileRouteTypes {
   to:
     | '/adcode'
     | '/analytics'
+    | '/approvals'
     | '/campaigns'
     | '/payouts'
     | '/reports'
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_app/adcode'
     | '/_app/analytics'
+    | '/_app/approvals'
     | '/_app/campaigns'
     | '/_app/payouts'
     | '/_app/reports'
@@ -344,6 +356,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCampaignsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/approvals': {
+      id: '/_app/approvals'
+      path: '/approvals'
+      fullPath: '/approvals'
+      preLoaderRoute: typeof AppApprovalsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/analytics': {
       id: '/_app/analytics'
       path: '/analytics'
@@ -402,6 +421,7 @@ const AppZonesRouteWithChildren = AppZonesRoute._addFileChildren(
 interface AppRouteChildren {
   AppAdcodeRoute: typeof AppAdcodeRoute
   AppAnalyticsRoute: typeof AppAnalyticsRoute
+  AppApprovalsRoute: typeof AppApprovalsRoute
   AppCampaignsRoute: typeof AppCampaignsRoute
   AppPayoutsRoute: typeof AppPayoutsRoute
   AppReportsRoute: typeof AppReportsRoute
@@ -418,6 +438,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAdcodeRoute: AppAdcodeRoute,
   AppAnalyticsRoute: AppAnalyticsRoute,
+  AppApprovalsRoute: AppApprovalsRoute,
   AppCampaignsRoute: AppCampaignsRoute,
   AppPayoutsRoute: AppPayoutsRoute,
   AppReportsRoute: AppReportsRoute,

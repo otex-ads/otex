@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Upload, Check, AlertCircle, Globe, Cloud } from "lucide-react";
 
 export const Route = createFileRoute("/_app/cdn")({
@@ -81,7 +87,10 @@ function CDNPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="provider">Provider</Label>
-            <Select value={provider} onValueChange={(v: "cloudflare" | "aws" | "local") => setProvider(v)}>
+            <Select
+              value={provider}
+              onValueChange={(v: "cloudflare" | "aws" | "local") => setProvider(v)}
+            >
               <SelectTrigger id="provider">
                 <SelectValue />
               </SelectTrigger>

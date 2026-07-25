@@ -12,8 +12,14 @@ const listeners = new Set<() => void>();
 
 export const store = {
   get: () => state,
-  subscribe: (fn: () => void) => { listeners.add(fn); return () => listeners.delete(fn); },
-  setBalance(n: number) { state = { ...state, balance: n }; listeners.forEach((l) => l()); },
+  subscribe: (fn: () => void) => {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  },
+  setBalance(n: number) {
+    state = { ...state, balance: n };
+    listeners.forEach((l) => l());
+  },
 };
 
 export function useStore<T>(selector: (s: State) => T): T {

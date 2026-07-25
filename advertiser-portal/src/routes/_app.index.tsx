@@ -1,7 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { MousePointerClick, Eye, TrendingUp, DollarSign, Plus, ArrowUpRight } from "lucide-react";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
 import { SurfaceCard, SectionLabel } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
 import { useStore } from "@/lib/store";
@@ -11,8 +19,18 @@ export const Route = createFileRoute("/_app/")({
   component: Dashboard,
 });
 
-function StatCard({ label, value, sub, icon: Icon, delay = 0 }: {
-  label: string; value: string; sub?: string; icon: typeof Eye; delay?: number;
+function StatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  delay = 0,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon: typeof Eye;
+  delay?: number;
 }) {
   return (
     <SurfaceCard delay={delay} className="flex flex-col gap-4">
@@ -47,7 +65,10 @@ function Dashboard() {
   const ctr = totals.impressions ? (totals.clicks / totals.impressions) * 100 : 0;
 
   // Trend by day
-  const byDay = new Map<string, { date: string; impressions: number; clicks: number; spend: number }>();
+  const byDay = new Map<
+    string,
+    { date: string; impressions: number; clicks: number; spend: number }
+  >();
   for (const s of stats) {
     const cur = byDay.get(s.date) ?? { date: s.date, impressions: 0, clicks: 0, spend: 0 };
     cur.impressions += s.impressions;
@@ -70,13 +91,16 @@ function Dashboard() {
         <div className="relative flex flex-wrap items-end justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-anchor-foreground/60">
-              <span>Overview</span><span className="text-anchor-foreground/30">/</span><span className="text-anchor-foreground/90">Last 14 days</span>
+              <span>Overview</span>
+              <span className="text-anchor-foreground/30">/</span>
+              <span className="text-anchor-foreground/90">Last 14 days</span>
             </div>
             <h1 className="display mt-4 text-5xl font-bold tracking-tight md:text-6xl">
               Your ads, <span className="text-anchor-foreground/60">performing.</span>
             </h1>
             <p className="mt-3 max-w-xl text-sm text-anchor-foreground/60">
-              Live snapshot across every campaign — impressions, clicks, and spend rolled up in real time.
+              Live snapshot across every campaign — impressions, clicks, and spend rolled up in real
+              time.
             </p>
           </div>
           <Link
@@ -89,10 +113,34 @@ function Dashboard() {
       </motion.section>
 
       <div className="grid gap-4 lg:grid-cols-4">
-        <StatCard delay={0.04} label="Impressions" value={Num(totals.impressions)} sub="Last 14 days" icon={Eye} />
-        <StatCard delay={0.08} label="Clicks" value={Num(totals.clicks)} sub={`CTR ${ctr.toFixed(2)}%`} icon={MousePointerClick} />
-        <StatCard delay={0.12} label="Conversions" value={Num(totals.conversions)} sub="Attributed" icon={TrendingUp} />
-        <StatCard delay={0.16} label="Spend" value={KES(totals.spend, { compact: true })} sub="Across all campaigns" icon={DollarSign} />
+        <StatCard
+          delay={0.04}
+          label="Impressions"
+          value={Num(totals.impressions)}
+          sub="Last 14 days"
+          icon={Eye}
+        />
+        <StatCard
+          delay={0.08}
+          label="Clicks"
+          value={Num(totals.clicks)}
+          sub={`CTR ${ctr.toFixed(2)}%`}
+          icon={MousePointerClick}
+        />
+        <StatCard
+          delay={0.12}
+          label="Conversions"
+          value={Num(totals.conversions)}
+          sub="Attributed"
+          icon={TrendingUp}
+        />
+        <StatCard
+          delay={0.16}
+          label="Spend"
+          value={KES(totals.spend, { compact: true })}
+          sub="Across all campaigns"
+          icon={DollarSign}
+        />
       </div>
 
       <SurfaceCard delay={0.2}>
@@ -113,12 +161,43 @@ function Dashboard() {
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="2 4" stroke="oklch(0 0 0 / 0.06)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "oklch(0.48 0.012 150)" }} axisLine={false} tickLine={false}
-                tickFormatter={(d) => new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} />
-              <YAxis tick={{ fontSize: 11, fill: "oklch(0.48 0.012 150)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}K`} width={40} />
-              <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid oklch(0 0 0 / 0.06)", fontSize: 12 }} />
-              <Area type="monotone" dataKey="impressions" stroke="oklch(0.305 0.052 160)" fill="url(#imp)" strokeWidth={2} />
-              <Area type="monotone" dataKey="clicks" stroke="oklch(0.62 0.06 160)" fill="url(#clk)" strokeWidth={2} />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 11, fill: "oklch(0.48 0.012 150)" }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(d) =>
+                  new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+                }
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "oklch(0.48 0.012 150)" }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v) => `${v / 1000}K`}
+                width={40}
+              />
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 12,
+                  border: "1px solid oklch(0 0 0 / 0.06)",
+                  fontSize: 12,
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="impressions"
+                stroke="oklch(0.305 0.052 160)"
+                fill="url(#imp)"
+                strokeWidth={2}
+              />
+              <Area
+                type="monotone"
+                dataKey="clicks"
+                stroke="oklch(0.62 0.06 160)"
+                fill="url(#clk)"
+                strokeWidth={2}
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -128,9 +207,15 @@ function Dashboard() {
         <div className="flex items-center justify-between px-6 py-5">
           <div>
             <SectionLabel>Active campaigns</SectionLabel>
-            <div className="text-base font-semibold">{campaigns.length} total · {campaigns.filter(c => c.status === "active").length} active</div>
+            <div className="text-base font-semibold">
+              {campaigns.length} total · {campaigns.filter((c) => c.status === "active").length}{" "}
+              active
+            </div>
           </div>
-          <Link to="/campaigns" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+          <Link
+            to="/campaigns"
+            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
             View all <ArrowUpRight className="size-3" />
           </Link>
         </div>
@@ -159,7 +244,13 @@ function Dashboard() {
                   <td className="px-6 py-4">
                     <StatusPill
                       status={c.status[0].toUpperCase() + c.status.slice(1)}
-                      tone={c.status === "active" ? "success" : c.status === "paused" ? "warning" : "neutral"}
+                      tone={
+                        c.status === "active"
+                          ? "success"
+                          : c.status === "paused"
+                            ? "warning"
+                            : "neutral"
+                      }
                     />
                   </td>
                 </tr>

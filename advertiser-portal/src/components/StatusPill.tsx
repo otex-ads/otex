@@ -49,13 +49,15 @@ export function StatusPill({ status, tone }: { status: string; tone?: Tone }) {
         toneStyles[t],
       )}
     >
-      <span className={cn("size-1.5 rounded-full", {
-        "bg-success": t === "success",
-        "bg-warning": t === "warning",
-        "bg-danger": t === "danger",
-        "bg-muted-foreground": t === "neutral",
-        "bg-primary": t === "info",
-      })} />
+      <span
+        className={cn("size-1.5 rounded-full", {
+          "bg-success": t === "success",
+          "bg-warning": t === "warning",
+          "bg-danger": t === "danger",
+          "bg-muted-foreground": t === "neutral",
+          "bg-primary": t === "info",
+        })}
+      />
       {status}
     </span>
   );

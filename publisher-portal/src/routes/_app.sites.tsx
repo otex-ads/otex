@@ -15,7 +15,17 @@ export const Route = createFileRoute("/_app/sites")({
   component: SitesPage,
 });
 
-const CATEGORIES = ["News", "Entertainment", "Sports", "Tech", "Finance", "Lifestyle", "Gaming", "Education", "Other"];
+const CATEGORIES = [
+  "News",
+  "Entertainment",
+  "Sports",
+  "Tech",
+  "Finance",
+  "Lifestyle",
+  "Gaming",
+  "Education",
+  "Other",
+];
 
 interface SiteForm {
   name: string;
@@ -30,17 +40,27 @@ function useSiteMutations() {
   return {
     create: useMutation({
       mutationFn: (input: SiteForm) => api.createSite(input),
-      onSuccess: () => { invalidate(); toast.success("Site created"); },
+      onSuccess: () => {
+        invalidate();
+        toast.success("Site created");
+      },
       onError: (e: Error) => toast.error(e.message),
     }),
     update: useMutation({
-      mutationFn: ({ id, patch }: { id: string; patch: Partial<Site> }) => api.updateSite(id, patch),
-      onSuccess: () => { invalidate(); toast.success("Site updated"); },
+      mutationFn: ({ id, patch }: { id: string; patch: Partial<Site> }) =>
+        api.updateSite(id, patch),
+      onSuccess: () => {
+        invalidate();
+        toast.success("Site updated");
+      },
       onError: (e: Error) => toast.error(e.message),
     }),
     remove: useMutation({
       mutationFn: (id: string) => api.deleteSite(id),
-      onSuccess: () => { invalidate(); toast.success("Site deleted"); },
+      onSuccess: () => {
+        invalidate();
+        toast.success("Site deleted");
+      },
       onError: (e: Error) => toast.error(e.message),
     }),
   };
@@ -102,23 +122,39 @@ function SitesPage() {
                 {list.map((s) => (
                   <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                     <td className="px-6 py-4">
-                      <Link to="/sites/$siteId" params={{ siteId: s.id }} className="flex items-center gap-2 font-medium text-foreground hover:text-primary">
-                        {s.name} <ArrowUpRight className="size-3 opacity-0 transition group-hover:opacity-100" />
+                      <Link
+                        to="/sites/$siteId"
+                        params={{ siteId: s.id }}
+                        className="flex items-center gap-2 font-medium text-foreground hover:text-primary"
+                      >
+                        {s.name}{" "}
+                        <ArrowUpRight className="size-3 opacity-0 transition group-hover:opacity-100" />
                       </Link>
-                      {s.category && <div className="text-xs text-muted-foreground">{s.category}</div>}
+                      {s.category && (
+                        <div className="text-xs text-muted-foreground">{s.category}</div>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">{s.domain}</td>
                     <td className="px-6 py-4">
-                      <StatusPill status={s.status[0].toUpperCase() + s.status.slice(1)} tone={s.status === "active" ? "success" : "warning"} />
+                      <StatusPill
+                        status={s.status[0].toUpperCase() + s.status.slice(1)}
+                        tone={s.status === "active" ? "success" : "warning"}
+                      />
                     </td>
                     <td className="num px-6 py-4 text-right">{Num(s.impressions)}</td>
                     <td className="num px-6 py-4 text-right">{USD(s.revenue)}</td>
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-1">
-                        <button onClick={() => setEditing(s)} className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                        <button
+                          onClick={() => setEditing(s)}
+                          className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
                           <Pencil className="size-3.5" />
                         </button>
-                        <button onClick={() => setDeleting(s)} className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-danger-soft hover:text-danger">
+                        <button
+                          onClick={() => setDeleting(s)}
+                          className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-danger-soft hover:text-danger"
+                        >
                           <Trash2 className="size-3.5" />
                         </button>
                       </div>
@@ -143,24 +179,37 @@ function SitesPage() {
         <SiteFormModal
           site={editing}
           onClose={() => setEditing(null)}
-          onSubmit={(v) => mut.update.mutate({ id: editing.id, patch: v }, { onSuccess: () => setEditing(null) })}
+          onSubmit={(v) =>
+            mut.update.mutate({ id: editing.id, patch: v }, { onSuccess: () => setEditing(null) })
+          }
           loading={mut.update.isPending}
           title="Edit site"
-          onToggle={() => mut.update.mutate({
-            id: editing.id,
-            patch: { status: editing.status === "active" ? "paused" : "active" },
-          }, { onSuccess: () => setEditing(null) })}
+          onToggle={() =>
+            mut.update.mutate(
+              {
+                id: editing.id,
+                patch: { status: editing.status === "active" ? "paused" : "active" },
+              },
+              { onSuccess: () => setEditing(null) },
+            )
+          }
         />
       )}
       <Modal
         open={!!deleting}
         onClose={() => setDeleting(null)}
         title="Delete site?"
-        description={deleting ? `"${deleting.name}" and all its zones will be removed. This can't be undone.` : ""}
+        description={
+          deleting
+            ? `"${deleting.name}" and all its zones will be removed. This can't be undone.`
+            : ""
+        }
       >
         <ModalActions
           onCancel={() => setDeleting(null)}
-          onConfirm={() => deleting && mut.remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })}
+          onConfirm={() =>
+            deleting && mut.remove.mutate(deleting.id, { onSuccess: () => setDeleting(null) })
+          }
           loading={mut.remove.isPending}
           confirmLabel="Delete"
           confirmVariant="danger"
@@ -171,7 +220,12 @@ function SitesPage() {
 }
 
 function SiteFormModal({
-  site, onClose, onSubmit, loading, title, onToggle,
+  site,
+  onClose,
+  onSubmit,
+  loading,
+  title,
+  onToggle,
 }: {
   site?: Site;
   onClose: () => void;
@@ -199,18 +253,40 @@ function SiteFormModal({
     <Modal open onClose={onClose} title={title}>
       <div className="flex flex-col gap-4">
         <FormField label="Site name" required>
-          <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="My Awesome Blog" />
+          <input
+            className={inputCls}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="My Awesome Blog"
+          />
         </FormField>
         <FormField label="Domain" required hint="e.g. example.com">
-          <input className={inputCls} value={form.domain} onChange={(e) => setForm({ ...form, domain: e.target.value })} placeholder="example.com" />
+          <input
+            className={inputCls}
+            value={form.domain}
+            onChange={(e) => setForm({ ...form, domain: e.target.value })}
+            placeholder="example.com"
+          />
         </FormField>
         <FormField label="Category">
-          <select className={selectCls} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-            {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+          <select
+            className={selectCls}
+            value={form.category}
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
+          >
+            {CATEGORIES.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
           </select>
         </FormField>
         <FormField label="Description">
-          <textarea rows={3} className={inputCls + " h-auto py-2"} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Short description of the site's audience and content." />
+          <textarea
+            rows={3}
+            className={inputCls + " h-auto py-2"}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            placeholder="Short description of the site's audience and content."
+          />
         </FormField>
         {site && onToggle && (
           <button
@@ -222,7 +298,12 @@ function SiteFormModal({
           </button>
         )}
       </div>
-      <ModalActions onCancel={onClose} onConfirm={submit} loading={loading} confirmLabel={site ? "Save changes" : "Create site"} />
+      <ModalActions
+        onCancel={onClose}
+        onConfirm={submit}
+        loading={loading}
+        confirmLabel={site ? "Save changes" : "Create site"}
+      />
     </Modal>
   );
 }

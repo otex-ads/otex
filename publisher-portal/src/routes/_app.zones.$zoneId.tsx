@@ -19,24 +19,39 @@ function ZoneDetail() {
   const code = zone ? buildAdCode({ zoneId: zone.id, async: true, responsive: true }) : "";
 
   const copy = async () => {
-    try { await navigator.clipboard.writeText(code); toast.success("Ad code copied"); } catch { toast.error("Copy failed"); }
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success("Ad code copied");
+    } catch {
+      toast.error("Copy failed");
+    }
   };
 
   return (
     <div className="space-y-6">
-      <Link to="/zones" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        to="/zones"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="size-4" /> Back to zones
       </Link>
 
       <div>
         <div className="label-eyebrow mb-2">Zone details</div>
-        <h1 className="display text-4xl font-normal tracking-tight text-foreground">{zone?.name ?? "Zone"}</h1>
+        <h1 className="display text-4xl font-normal tracking-tight text-foreground">
+          {zone?.name ?? "Zone"}
+        </h1>
         {zone && (
           <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-            <span>{zone.siteName ?? zone.siteId}</span><span>·</span>
-            <span>{zone.size}</span><span>·</span>
+            <span>{zone.siteName ?? zone.siteId}</span>
+            <span>·</span>
+            <span>{zone.size}</span>
+            <span>·</span>
             <span className="capitalize">{zone.format}</span>
-            <StatusPill status={zone.status[0].toUpperCase() + zone.status.slice(1)} tone={zone.status === "active" ? "success" : "warning"} />
+            <StatusPill
+              status={zone.status[0].toUpperCase() + zone.status.slice(1)}
+              tone={zone.status === "active" ? "success" : "warning"}
+            />
           </div>
         )}
       </div>
@@ -45,12 +60,17 @@ function ZoneDetail() {
         {[
           { label: "Impressions", value: Num(zone?.impressions ?? 0) },
           { label: "Clicks", value: Num(zone?.clicks ?? 0) },
-          { label: "CTR", value: Pct(zone && zone.impressions ? (zone.clicks / zone.impressions) * 100 : 0) },
+          {
+            label: "CTR",
+            value: Pct(zone && zone.impressions ? (zone.clicks / zone.impressions) * 100 : 0),
+          },
           { label: "Revenue", value: USD(zone?.revenue ?? 0) },
         ].map((s, i) => (
           <SurfaceCard key={s.label} delay={0.04 * i}>
             <div className="label-eyebrow">{s.label}</div>
-            <div className="num display mt-2 text-3xl font-bold tracking-tight text-foreground">{s.value}</div>
+            <div className="num display mt-2 text-3xl font-bold tracking-tight text-foreground">
+              {s.value}
+            </div>
           </SurfaceCard>
         ))}
       </div>
@@ -59,13 +79,20 @@ function ZoneDetail() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <SectionLabel>Embed code</SectionLabel>
-            <p className="text-sm text-muted-foreground">Paste this snippet where you want the ad to render.</p>
+            <p className="text-sm text-muted-foreground">
+              Paste this snippet where you want the ad to render.
+            </p>
           </div>
-          <button onClick={copy} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted/50">
+          <button
+            onClick={copy}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-muted/50"
+          >
             <Copy className="size-3.5" /> Copy
           </button>
         </div>
-        <pre className="font-mono mt-4 max-h-64 overflow-auto rounded-lg border border-border bg-muted/40 p-4 text-[11px] leading-relaxed text-foreground">{code}</pre>
+        <pre className="font-mono mt-4 max-h-64 overflow-auto rounded-lg border border-border bg-muted/40 p-4 text-[11px] leading-relaxed text-foreground">
+          {code}
+        </pre>
       </SurfaceCard>
     </div>
   );

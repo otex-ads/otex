@@ -129,7 +129,7 @@ class ApiClient {
     const json = await response.json();
     // Unwrap the backend's { success: true, data: ... } envelope
     if (json && typeof json === "object" && "success" in json && "data" in json) {
-      return (json as any).data as T;
+      return (json as { success: boolean; data: T }).data;
     }
     return json as T;
   }
@@ -153,9 +153,22 @@ class ApiClient {
   }
 
   async getCampaigns(): Promise<Campaign[]> {
-    const campaigns = await this.request<any[]>("/api/v1/campaigns");
+    const campaigns = await this.request<
+      Array<{
+        id: string;
+        name: string;
+        pricing_model: string;
+        bid_amount_cents: number;
+        daily_budget_cents: number;
+        total_budget_cents: number;
+        status: string;
+        timezone: string;
+        starts_at?: string;
+        ends_at?: string;
+      }>
+    >("/api/v1/campaigns");
     // Transform backend format to frontend format
-    return campaigns.map((c) => ({
+    return (campaigns || []).map((c) => ({
       id: c.id,
       name: c.name,
       format: "push" as CreativeFormat, // Default format since backend doesn't return it
@@ -177,7 +190,12 @@ class ApiClient {
     }));
   }
 
-  async createCampaign(data: Omit<Campaign, "id" | "spent" | "impressions" | "clicks" | "conversions" | "status" | "createdAt">): Promise<Campaign> {
+  async createCampaign(
+    data: Omit<
+      Campaign,
+      "id" | "spent" | "impressions" | "clicks" | "conversions" | "status" | "createdAt"
+    >,
+  ): Promise<Campaign> {
     // Transform frontend format to backend format
     const backendData = {
       name: data.name,
@@ -187,10 +205,38 @@ class ApiClient {
       total_budget_cents: Math.round(data.totalBudget * 100),
       timezone: "Africa/Nairobi",
     };
-    return this.request<Campaign>("/api/v1/campaigns", {
+    const backendCampaign = await this.request<{
+      id: string;
+      name: string;
+      pricing_model: string;
+      bid_amount_cents: number;
+      daily_budget_cents: number;
+      total_budget_cents: number;
+      status: string;
+      timezone: string;
+      created_at: string;
+    }>("/api/v1/campaigns", {
       method: "POST",
       body: JSON.stringify(backendData),
     });
+    // Transform backend response to frontend format
+    return {
+      id: backendCampaign.id,
+      name: backendCampaign.name,
+      format: data.format,
+      pricingModel: backendCampaign.pricing_model.toUpperCase() as PricingModel,
+      bid: backendCampaign.bid_amount_cents / 100,
+      dailyBudget: backendCampaign.daily_budget_cents / 100,
+      totalBudget: backendCampaign.total_budget_cents / 100,
+      spent: 0,
+      impressions: 0,
+      clicks: 0,
+      conversions: 0,
+      targeting: data.targeting,
+      creativeId: data.creativeId,
+      status: backendCampaign.status as CampaignStatus,
+      createdAt: backendCampaign.created_at,
+    };
   }
 
   async updateCampaign(id: string, data: Partial<Campaign>): Promise<Campaign> {
@@ -201,31 +247,46 @@ class ApiClient {
   }
 
   async getWallet(): Promise<{ balance: number }> {
-    const data = await this.request<any>("/api/v1/wallet");
+    const data = await this.request<{ balance_cents?: number; balance?: number }>("/api/v1/wallet");
     return { balance: (data.balance_cents ?? data.balance ?? 0) / 100 };
   }
 
-  async topUpWallet(data: { amount_cents: number; email: string; channel?: string }): Promise<TopUpResponse> {
+  async topUpWallet(data: {
+    amount_cents: number;
+    email: string;
+    channel?: string;
+  }): Promise<TopUpResponse> {
     return this.request<TopUpResponse>("/api/v1/wallet/topup", {
       method: "POST",
       body: JSON.stringify(data),
     });
   }
 
-  async verifyTopUp(reference: string): Promise<{ status: string; amount: number; new_balance: number }> {
+  async verifyTopUp(
+    reference: string,
+  ): Promise<{ status: string; amount: number; new_balance: number }> {
     return this.request<{ status: string; amount: number; new_balance: number }>(
-      `/api/v1/wallet/verify?reference=${encodeURIComponent(reference)}`
+      `/api/v1/wallet/verify?reference=${encodeURIComponent(reference)}`,
     );
   }
 
   async getTransactions(): Promise<WalletTx[]> {
-    const txs = await this.request<any[]>("/api/v1/wallet/transactions");
-    return (txs || []).map((t: any) => ({
+    const txs = await this.request<
+      Array<{
+        id: string;
+        type: string;
+        amount_cents?: number;
+        reference?: string;
+        created_at?: string;
+        createdAt?: string;
+      }>
+    >("/api/v1/wallet/transactions");
+    return (txs || []).map((t) => ({
       id: t.id,
       type: t.type,
       amount: (t.amount_cents ?? 0) / 100,
-      reference: t.reference || '',
-      createdAt: t.created_at || t.createdAt || '',
+      reference: t.reference || "",
+      createdAt: t.created_at || t.createdAt || "",
     }));
   }
 

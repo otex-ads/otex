@@ -31,7 +31,7 @@ jobs:
 
       - name: Run database migrations
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/adnet/deploy && docker compose exec -e PGPASSWORD=NkdTLkQHwFKYpfQIL4TgRalTPPpqAzq8 -T postgres psql -U postgres -d adnet < ../migrations/000002_payment_ledger.up.sql || true"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd /opt/adnet/deploy && docker compose exec -e PGPASSWORD=${{ secrets.POSTGRES_PASSWORD }} -T postgres psql -U postgres -d adnet < ../migrations/000002_payment_ledger.up.sql || true"
 
       - name: Build and Deploy Portals on VPS
         run: |

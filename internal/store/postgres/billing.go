@@ -15,22 +15,29 @@ type Wallet struct {
 }
 
 type Transaction struct {
-	ID          uuid.UUID `json:"id"`
-	AccountID   uuid.UUID `json:"account_id"`
-	Type        string    `json:"type"`
-	AmountCents int64     `json:"amount_cents"`
-	Reference   *string   `json:"reference,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID              uuid.UUID `json:"id"`
+	AccountID       uuid.UUID `json:"account_id"`
+	Type            string    `json:"type"`
+	AmountCents     int64     `json:"amount_cents"`
+	Reference       *string   `json:"reference,omitempty"`
+	Status          string    `json:"status"`
+	PaystackReference *string `json:"paystack_reference,omitempty"`
+	Metadata        map[string]interface{} `json:"metadata,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 type PayoutRequest struct {
-	ID           uuid.UUID  `json:"id"`
-	PublisherID  uuid.UUID  `json:"publisher_id"`
-	AmountCents  int64      `json:"amount_cents"`
-	Status       string     `json:"status"`
-	MpesaReceipt *string    `json:"mpesa_receipt,omitempty"`
-	RequestedAt  time.Time  `json:"requested_at"`
-	ProcessedAt  *time.Time `json:"processed_at,omitempty"`
+	ID                  uuid.UUID  `json:"id"`
+	PublisherID         uuid.UUID  `json:"publisher_id"`
+	AmountCents         int64      `json:"amount_cents"`
+	Status              string     `json:"status"`
+	MpesaReceipt        *string    `json:"mpesa_receipt,omitempty"`
+	PaystackTransferCode *string   `json:"paystack_transfer_code,omitempty"`
+	PaystackReference   *string    `json:"paystack_reference,omitempty"`
+	RecipientCode       *string    `json:"recipient_code,omitempty"`
+	FailureReason       *string    `json:"failure_reason,omitempty"`
+	RequestedAt         time.Time  `json:"requested_at"`
+	ProcessedAt         *time.Time `json:"processed_at,omitempty"`
 }
 
 func (db *DB) GetWallet(ctx context.Context, accountID uuid.UUID) (*Wallet, error) {
@@ -99,9 +106,9 @@ func (db *DB) UpdateWalletBalance(ctx context.Context, accountID uuid.UUID, delt
 
 func (db *DB) CreateTransaction(ctx context.Context, accountID uuid.UUID, txType string, amountCents int64, reference *string) (*Transaction, error) {
 	const query = `
-		INSERT INTO transactions (account_id, type, amount_cents, reference)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, account_id, type, amount_cents, reference, created_at
+		INSERT INTO transactions (account_id, type, amount_cents, reference, status)
+		VALUES ($1, $2, $3, $4, 'completed')
+		RETURNING id, account_id, type, amount_cents, reference, status, paystack_reference, metadata, created_at
 	`
 
 	var transaction Transaction
@@ -111,6 +118,9 @@ func (db *DB) CreateTransaction(ctx context.Context, accountID uuid.UUID, txType
 		&transaction.Type,
 		&transaction.AmountCents,
 		&transaction.Reference,
+		&transaction.Status,
+		&transaction.PaystackReference,
+		&transaction.Metadata,
 		&transaction.CreatedAt,
 	)
 	if err != nil {
@@ -122,7 +132,7 @@ func (db *DB) CreateTransaction(ctx context.Context, accountID uuid.UUID, txType
 
 func (db *DB) ListTransactions(ctx context.Context, accountID uuid.UUID, limit int) ([]*Transaction, error) {
 	const query = `
-		SELECT id, account_id, type, amount_cents, reference, created_at
+		SELECT id, account_id, type, amount_cents, reference, status, paystack_reference, metadata, created_at
 		FROM transactions
 		WHERE account_id = $1
 		ORDER BY created_at DESC
@@ -144,6 +154,9 @@ func (db *DB) ListTransactions(ctx context.Context, accountID uuid.UUID, limit i
 			&tx.Type,
 			&tx.AmountCents,
 			&tx.Reference,
+			&tx.Status,
+			&tx.PaystackReference,
+			&tx.Metadata,
 			&tx.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -183,7 +196,7 @@ func (db *DB) UpdatePayoutRequestStatus(ctx context.Context, id uuid.UUID, statu
 		UPDATE payout_requests
 		SET status = $2, mpesa_receipt = $3, processed_at = NOW()
 		WHERE id = $1
-		RETURNING id, publisher_id, amount_cents, status, mpesa_receipt, requested_at, processed_at
+		RETURNING id, publisher_id, amount_cents, status, mpesa_receipt, paystack_transfer_code, paystack_reference, recipient_code, failure_reason, requested_at, processed_at
 	`
 
 	var request PayoutRequest
@@ -193,6 +206,10 @@ func (db *DB) UpdatePayoutRequestStatus(ctx context.Context, id uuid.UUID, statu
 		&request.AmountCents,
 		&request.Status,
 		&request.MpesaReceipt,
+		&request.PaystackTransferCode,
+		&request.PaystackReference,
+		&request.RecipientCode,
+		&request.FailureReason,
 		&request.RequestedAt,
 		&request.ProcessedAt,
 	)
@@ -205,7 +222,7 @@ func (db *DB) UpdatePayoutRequestStatus(ctx context.Context, id uuid.UUID, statu
 
 func (db *DB) ListPayoutRequests(ctx context.Context, publisherID uuid.UUID) ([]*PayoutRequest, error) {
 	const query = `
-		SELECT id, publisher_id, amount_cents, status, mpesa_receipt, requested_at, processed_at
+		SELECT id, publisher_id, amount_cents, status, mpesa_receipt, paystack_transfer_code, paystack_reference, recipient_code, failure_reason, requested_at, processed_at
 		FROM payout_requests
 		WHERE publisher_id = $1
 		ORDER BY requested_at DESC
@@ -226,6 +243,10 @@ func (db *DB) ListPayoutRequests(ctx context.Context, publisherID uuid.UUID) ([]
 			&req.AmountCents,
 			&req.Status,
 			&req.MpesaReceipt,
+			&req.PaystackTransferCode,
+			&req.PaystackReference,
+			&req.RecipientCode,
+			&req.FailureReason,
 			&req.RequestedAt,
 			&req.ProcessedAt,
 		); err != nil {

@@ -5,7 +5,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MessageSquare, Send, CheckCircle, Clock, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_app/support")({
@@ -152,10 +158,15 @@ function SupportPage() {
         <CardContent>
           <div className="space-y-3">
             {tickets.map((ticket) => (
-              <div key={ticket.id} className="flex items-center justify-between rounded-lg border p-3">
+              <div
+                key={ticket.id}
+                className="flex items-center justify-between rounded-lg border p-3"
+              >
                 <div className="space-y-1">
                   <p className="font-medium text-foreground">{ticket.subject}</p>
-                  <p className="text-xs text-muted-foreground">{ticket.id} · {ticket.created}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {ticket.id} · {ticket.created}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
                   {ticket.status === "open" ? (

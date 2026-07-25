@@ -702,13 +702,8 @@ func (h *WalletHandler) TopUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create pending transaction record
-	ref := reference
-	_, err = h.db.CreateTransaction(r.Context(), accountID, "topup", req.AmountCents, &ref)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "Failed to create transaction record")
-		return
-	}
+	// Don't create transaction record yet - only credit when payment is successful via webhook
+	// Transaction will be created in the webhook handler on charge.success event
 
 	response := TopUpResponse{
 		AuthorizationURL: paystackResp.Data.AuthorizationURL,

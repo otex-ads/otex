@@ -79,10 +79,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "OtexAds · Publisher Portal" },
-      { name: "description", content: "Monetize your traffic with display, video and native ad zones. Real-time earnings, flexible payouts and full-funnel analytics." },
+      {
+        name: "description",
+        content:
+          "Monetize your traffic with display, video and native ad zones. Real-time earnings, flexible payouts and full-funnel analytics.",
+      },
       { name: "author", content: "OtexAds" },
       { property: "og:title", content: "OtexAds · Publisher Portal" },
-      { property: "og:description", content: "Monetize your traffic with real-time earnings and flexible payouts." },
+      {
+        property: "og:description",
+        content: "Monetize your traffic with real-time earnings and flexible payouts.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "webkit-noscreenshot", content: "1" },

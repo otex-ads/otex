@@ -79,10 +79,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "OtexAds · Advertiser Console" },
-      { name: "description", content: "Launch and optimize push, popunder, native, banner and interstitial ad campaigns with M-Pesa-funded budgets." },
+      {
+        name: "description",
+        content:
+          "Launch and optimize push, popunder, native, banner and interstitial ad campaigns with M-Pesa-funded budgets.",
+      },
       { name: "author", content: "OtexAds" },
       { property: "og:title", content: "OtexAds · Advertiser Console" },
-      { property: "og:description", content: "Launch and optimize ad campaigns with M-Pesa-funded budgets." },
+      {
+        property: "og:description",
+        content: "Launch and optimize ad campaigns with M-Pesa-funded budgets.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "webkit-noscreenshot", content: "1" },

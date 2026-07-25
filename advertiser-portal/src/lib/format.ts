@@ -1,4 +1,7 @@
-export const KES = (n: number | undefined | null, opts: { compact?: boolean; decimals?: number } = {}) => {
+export const KES = (
+  n: number | undefined | null,
+  opts: { compact?: boolean; decimals?: number } = {},
+) => {
   const safe = n ?? 0;
   const { compact, decimals = 0 } = opts;
   if (compact && Math.abs(safe) >= 1_000_000) {
@@ -15,7 +18,10 @@ export const KES = (n: number | undefined | null, opts: { compact?: boolean; dec
 
 export const Num = (n: number | undefined | null, decimals = 0) => {
   const safe = n ?? 0;
-  return safe.toLocaleString("en-KE", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  return safe.toLocaleString("en-KE", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
 };
 
 export const formatDate = (iso: string, withTime = false) => {

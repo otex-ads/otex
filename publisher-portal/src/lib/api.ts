@@ -47,12 +47,12 @@ export class ApiError extends Error {
   }
 }
 
-async function apiFetch<T>(
-  path: string,
-  opts: RequestInit & { auth?: boolean } = {},
-): Promise<T> {
+async function apiFetch<T>(path: string, opts: RequestInit & { auth?: boolean } = {}): Promise<T> {
   const { auth = true, headers, body, ...rest } = opts;
-  const h: Record<string, string> = { Accept: "application/json", ...(headers as Record<string, string>) };
+  const h: Record<string, string> = {
+    Accept: "application/json",
+    ...(headers as Record<string, string>),
+  };
   if (body && !(body instanceof FormData)) h["Content-Type"] = "application/json";
   if (auth) {
     const t = getToken();
@@ -79,13 +79,17 @@ async function apiFetch<T>(
   }
   // Unwrap the backend's { success: true, data: ... } envelope
   if (data && typeof data === "object" && "success" in data && "data" in data) {
-    return (data as any).data as T;
+    return (data as { success: boolean; data: T }).data;
   }
   return data as T;
 }
 
 function safeJson(t: string) {
-  try { return JSON.parse(t); } catch { return t; }
+  try {
+    return JSON.parse(t);
+  } catch {
+    return t;
+  }
 }
 
 // -------- Domain types --------
@@ -184,15 +188,34 @@ export interface RecipientStatus {
 export const api = {
   // Auth
   login: (email: string, password: string) =>
-    apiFetch<{ access_token: string; refresh_token: string; account_id: string; email: string; type: string }>(
-      "/api/auth/login",
-      { method: "POST", body: JSON.stringify({ email, password }), auth: false },
-    ),
+    apiFetch<{
+      access_token: string;
+      refresh_token: string;
+      account_id: string;
+      email: string;
+      type: string;
+    }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+      auth: false,
+    }),
   register: (email: string, password: string, accountType: string, companyName?: string) =>
-    apiFetch<{ access_token: string; refresh_token: string; account_id: string; email: string; type: string }>(
-      "/api/auth/register",
-      { method: "POST", body: JSON.stringify({ email, password, account_type: accountType, company_name: companyName }), auth: false },
-    ),
+    apiFetch<{
+      access_token: string;
+      refresh_token: string;
+      account_id: string;
+      email: string;
+      type: string;
+    }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        password,
+        account_type: accountType,
+        company_name: companyName,
+      }),
+      auth: false,
+    }),
 
   // Sites
   listSites: () => apiFetch<Site[]>("/api/v1/sites"),
@@ -200,27 +223,34 @@ export const api = {
     apiFetch<Site>("/api/v1/sites", { method: "POST", body: JSON.stringify(input) }),
   updateSite: (id: string, patch: Partial<Site>) =>
     apiFetch<Site>(`/api/v1/sites/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
-  deleteSite: (id: string) =>
-    apiFetch<void>(`/api/v1/sites/${id}`, { method: "DELETE" }),
+  deleteSite: (id: string) => apiFetch<void>(`/api/v1/sites/${id}`, { method: "DELETE" }),
 
   // Zones
   listZones: (siteId?: string) =>
     apiFetch<Zone[]>(`/api/v1/zones${siteId ? `?siteId=${siteId}` : ""}`),
-  createZone: (input: Omit<Zone, "id" | "revenue" | "impressions" | "clicks" | "status" | "siteName">) =>
-    apiFetch<Zone>("/api/v1/zones", { method: "POST", body: JSON.stringify(input) }),
+  createZone: (
+    input: Omit<Zone, "id" | "revenue" | "impressions" | "clicks" | "status" | "siteName">,
+  ) => apiFetch<Zone>("/api/v1/zones", { method: "POST", body: JSON.stringify(input) }),
   updateZone: (id: string, patch: Partial<Zone>) =>
     apiFetch<Zone>(`/api/v1/zones/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
-  deleteZone: (id: string) =>
-    apiFetch<void>(`/api/v1/zones/${id}`, { method: "DELETE" }),
+  deleteZone: (id: string) => apiFetch<void>(`/api/v1/zones/${id}`, { method: "DELETE" }),
 
   // Stats - not implemented yet, return empty
   stats: (params: { from?: string; to?: string; groupBy?: string } = {}) => {
-    return Promise.resolve({ summary: { impressions: 0, clicks: 0, ctr: 0, ecpm: 0, revenue: 0, fillRate: 0 }, daily: [] });
+    return Promise.resolve({
+      summary: { impressions: 0, clicks: 0, ctr: 0, ecpm: 0, revenue: 0, fillRate: 0 },
+      daily: [],
+    });
   },
 
   // Payouts
   balance: async () => {
-    const data = await apiFetch<any>("/api/v1/payouts/balance");
+    const data = await apiFetch<{
+      available?: number;
+      pending?: number;
+      totalPaid?: number;
+      total_paid?: number;
+    }>("/api/v1/payouts/balance");
     return {
       available: (data.available ?? 0) / 100,
       pending: (data.pending ?? 0) / 100,
@@ -228,8 +258,18 @@ export const api = {
     } as Balance;
   },
   listPayouts: async () => {
-    const data = await apiFetch<any[]>("/api/v1/payouts");
-    return (data || []).map((p: any) => ({
+    const data = await apiFetch<
+      Array<{
+        id: string;
+        amount_cents?: number;
+        status: string;
+        requested_at?: string;
+        created_at?: string;
+        paystack_reference?: string;
+        mpesa_receipt?: string;
+      }>
+    >("/api/v1/payouts");
+    return (data || []).map((p) => ({
       id: p.id,
       amount: (p.amount_cents ?? 0) / 100,
       method: "M-Pesa",

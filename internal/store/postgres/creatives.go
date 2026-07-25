@@ -11,30 +11,34 @@ import (
 type Creative struct {
 	ID         uuid.UUID `json:"id"`
 	CampaignID uuid.UUID `json:"campaign_id"`
-	Type       string    `json:"type"`
+	Format     string    `json:"format"`
+	Title      *string   `json:"title,omitempty"`
+	Body       *string   `json:"body,omitempty"`
+	IconURL    *string   `json:"icon_url,omitempty"`
+	ImageURL   *string   `json:"image_url,omitempty"`
+	ClickURL   string    `json:"click_url"`
 	Status     string    `json:"status"`
-	URL        string    `json:"url"`
-	Width      int       `json:"width"`
-	Height     int       `json:"height"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
-func (db *DB) CreateCreative(ctx context.Context, campaignID uuid.UUID, creativeType, status, url string, width, height int) (*Creative, error) {
+func (db *DB) CreateCreative(ctx context.Context, campaignID uuid.UUID, format, title, body, iconURL, imageURL, clickURL, status string) (*Creative, error) {
 	const query = `
-		INSERT INTO creatives (campaign_id, type, status, url, width, height)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, campaign_id, type, status, url, width, height, created_at
+		INSERT INTO creatives (campaign_id, format, title, body, icon_url, image_url, click_url, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, campaign_id, format, title, body, icon_url, image_url, click_url, status, created_at
 	`
 
 	var creative Creative
-	err := db.pool.QueryRow(ctx, query, campaignID, creativeType, status, url, width, height).Scan(
+	err := db.pool.QueryRow(ctx, query, campaignID, format, &title, &body, &iconURL, &imageURL, clickURL, status).Scan(
 		&creative.ID,
 		&creative.CampaignID,
-		&creative.Type,
+		&creative.Format,
+		&creative.Title,
+		&creative.Body,
+		&creative.IconURL,
+		&creative.ImageURL,
+		&creative.ClickURL,
 		&creative.Status,
-		&creative.URL,
-		&creative.Width,
-		&creative.Height,
 		&creative.CreatedAt,
 	)
 	if err != nil {
@@ -46,7 +50,7 @@ func (db *DB) CreateCreative(ctx context.Context, campaignID uuid.UUID, creative
 
 func (db *DB) GetCreativeByID(ctx context.Context, id uuid.UUID) (*Creative, error) {
 	const query = `
-		SELECT id, campaign_id, type, status, url, width, height, created_at
+		SELECT id, campaign_id, format, title, body, icon_url, image_url, click_url, status, created_at
 		FROM creatives
 		WHERE id = $1
 	`
@@ -55,11 +59,13 @@ func (db *DB) GetCreativeByID(ctx context.Context, id uuid.UUID) (*Creative, err
 	err := db.pool.QueryRow(ctx, query, id).Scan(
 		&creative.ID,
 		&creative.CampaignID,
-		&creative.Type,
+		&creative.Format,
+		&creative.Title,
+		&creative.Body,
+		&creative.IconURL,
+		&creative.ImageURL,
+		&creative.ClickURL,
 		&creative.Status,
-		&creative.URL,
-		&creative.Width,
-		&creative.Height,
 		&creative.CreatedAt,
 	)
 	if err != nil {
@@ -74,7 +80,7 @@ func (db *DB) GetCreativeByID(ctx context.Context, id uuid.UUID) (*Creative, err
 
 func (db *DB) ListCreativesByCampaign(ctx context.Context, campaignID uuid.UUID) ([]*Creative, error) {
 	const query = `
-		SELECT id, campaign_id, type, status, url, width, height, created_at
+		SELECT id, campaign_id, format, title, body, icon_url, image_url, click_url, status, created_at
 		FROM creatives
 		WHERE campaign_id = $1
 		ORDER BY created_at DESC
@@ -92,11 +98,13 @@ func (db *DB) ListCreativesByCampaign(ctx context.Context, campaignID uuid.UUID)
 		if err := rows.Scan(
 			&creative.ID,
 			&creative.CampaignID,
-			&creative.Type,
+			&creative.Format,
+			&creative.Title,
+			&creative.Body,
+			&creative.IconURL,
+			&creative.ImageURL,
+			&creative.ClickURL,
 			&creative.Status,
-			&creative.URL,
-			&creative.Width,
-			&creative.Height,
 			&creative.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -119,9 +127,9 @@ func (db *DB) UpdateCreativeStatus(ctx context.Context, id uuid.UUID, status str
 
 func (db *DB) ListPendingCreatives(ctx context.Context) ([]*Creative, error) {
 	const query = `
-		SELECT id, campaign_id, type, status, url, width, height, created_at
+		SELECT id, campaign_id, format, title, body, icon_url, image_url, click_url, status, created_at
 		FROM creatives
-		WHERE status = 'pending'
+		WHERE status = 'pending_review'
 		ORDER BY created_at ASC
 	`
 
@@ -137,11 +145,13 @@ func (db *DB) ListPendingCreatives(ctx context.Context) ([]*Creative, error) {
 		if err := rows.Scan(
 			&creative.ID,
 			&creative.CampaignID,
-			&creative.Type,
+			&creative.Format,
+			&creative.Title,
+			&creative.Body,
+			&creative.IconURL,
+			&creative.ImageURL,
+			&creative.ClickURL,
 			&creative.Status,
-			&creative.URL,
-			&creative.Width,
-			&creative.Height,
 			&creative.CreatedAt,
 		); err != nil {
 			return nil, err

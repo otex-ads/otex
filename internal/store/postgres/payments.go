@@ -146,14 +146,14 @@ func (db *DB) UpdatePayoutWithPaystack(ctx context.Context, id uuid.UUID, status
 
 func (db *DB) GetPayoutByPaystackReference(ctx context.Context, reference string) (*PayoutRequest, error) {
 	const query = `
-		SELECT id, publisher_id, amount_cents, status, mpesa_receipt, requested_at, processed_at
+		SELECT id, publisher_id, amount_cents, status, mpesa_receipt, paystack_transfer_code, paystack_reference, recipient_code, failure_reason, requested_at, processed_at
 		FROM payout_requests
 		WHERE paystack_reference = $1
 	`
 
 	var req PayoutRequest
 	err := db.pool.QueryRow(ctx, query, reference).Scan(
-		&req.ID, &req.PublisherID, &req.AmountCents, &req.Status, &req.MpesaReceipt, &req.RequestedAt, &req.ProcessedAt,
+		&req.ID, &req.PublisherID, &req.AmountCents, &req.Status, &req.MpesaReceipt, &req.PaystackTransferCode, &req.PaystackReference, &req.RecipientCode, &req.FailureReason, &req.RequestedAt, &req.ProcessedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -166,7 +166,7 @@ func (db *DB) GetPayoutByPaystackReference(ctx context.Context, reference string
 
 func (db *DB) GetTransactionByReference(ctx context.Context, reference string) (*Transaction, error) {
 	const query = `
-		SELECT id, account_id, type, amount_cents, reference, created_at
+		SELECT id, account_id, type, amount_cents, reference, status, paystack_reference, metadata, created_at
 		FROM transactions
 		WHERE reference = $1
 		LIMIT 1
@@ -174,7 +174,7 @@ func (db *DB) GetTransactionByReference(ctx context.Context, reference string) (
 
 	var tx Transaction
 	err := db.pool.QueryRow(ctx, query, reference).Scan(
-		&tx.ID, &tx.AccountID, &tx.Type, &tx.AmountCents, &tx.Reference, &tx.CreatedAt,
+		&tx.ID, &tx.AccountID, &tx.Type, &tx.AmountCents, &tx.Reference, &tx.Status, &tx.PaystackReference, &tx.Metadata, &tx.CreatedAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -211,7 +211,7 @@ func (db *DB) GetFinancialSummary(ctx context.Context) (*FinancialSummary, error
 
 func (db *DB) ListAllDeposits(ctx context.Context, limit int) ([]*Transaction, error) {
 	const query = `
-		SELECT t.id, t.account_id, t.type, t.amount_cents, t.reference, t.created_at
+		SELECT t.id, t.account_id, t.type, t.amount_cents, t.reference, t.status, t.paystack_reference, t.metadata, t.created_at
 		FROM transactions t
 		WHERE t.type = 'topup'
 		ORDER BY t.created_at DESC
@@ -227,7 +227,7 @@ func (db *DB) ListAllDeposits(ctx context.Context, limit int) ([]*Transaction, e
 	var txs []*Transaction
 	for rows.Next() {
 		var tx Transaction
-		if err := rows.Scan(&tx.ID, &tx.AccountID, &tx.Type, &tx.AmountCents, &tx.Reference, &tx.CreatedAt); err != nil {
+		if err := rows.Scan(&tx.ID, &tx.AccountID, &tx.Type, &tx.AmountCents, &tx.Reference, &tx.Status, &tx.PaystackReference, &tx.Metadata, &tx.CreatedAt); err != nil {
 			return nil, err
 		}
 		txs = append(txs, &tx)
@@ -237,7 +237,7 @@ func (db *DB) ListAllDeposits(ctx context.Context, limit int) ([]*Transaction, e
 
 func (db *DB) ListAllPayouts(ctx context.Context, limit int) ([]*PayoutRequest, error) {
 	const query = `
-		SELECT id, publisher_id, amount_cents, status, mpesa_receipt, requested_at, processed_at
+		SELECT id, publisher_id, amount_cents, status, mpesa_receipt, paystack_transfer_code, paystack_reference, recipient_code, failure_reason, requested_at, processed_at
 		FROM payout_requests
 		ORDER BY requested_at DESC
 		LIMIT $1
@@ -252,7 +252,7 @@ func (db *DB) ListAllPayouts(ctx context.Context, limit int) ([]*PayoutRequest, 
 	var payouts []*PayoutRequest
 	for rows.Next() {
 		var p PayoutRequest
-		if err := rows.Scan(&p.ID, &p.PublisherID, &p.AmountCents, &p.Status, &p.MpesaReceipt, &p.RequestedAt, &p.ProcessedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.PublisherID, &p.AmountCents, &p.Status, &p.MpesaReceipt, &p.PaystackTransferCode, &p.PaystackReference, &p.RecipientCode, &p.FailureReason, &p.RequestedAt, &p.ProcessedAt); err != nil {
 			return nil, err
 		}
 		payouts = append(payouts, &p)

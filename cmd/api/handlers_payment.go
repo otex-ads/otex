@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 
 	"adnet/internal/billing"
 	"adnet/internal/mw"
@@ -108,20 +109,48 @@ func (h *WebhookHandler) PaystackWebhook(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *WebhookHandler) handleChargeSuccess(ctx context.Context, reference string, amount int64, eventID uuid.UUID) {
+	// Try to get existing transaction first
 	tx, err := h.db.GetTransactionByReference(ctx, reference)
+	
+	// If transaction doesn't exist, we need to extract account_id from the reference
+	// Reference format: adnet-topup-{account_id}-{timestamp}
+	var accountID uuid.UUID
 	if err != nil || tx == nil {
-		log.Printf("Webhook charge.success: transaction not found for ref %s", reference)
-		return
+		// Parse account ID from reference
+		// Format: adnet-topup-{account_id}-{timestamp}
+		parts := strings.Split(reference, "-")
+		if len(parts) >= 3 {
+			accountID, err = uuid.Parse(parts[2])
+			if err != nil {
+				log.Printf("Webhook charge.success: failed to parse account ID from ref %s: %v", reference, err)
+				return
+			}
+		} else {
+			log.Printf("Webhook charge.success: invalid reference format %s", reference)
+			return
+		}
+	} else {
+		accountID = tx.AccountID
 	}
 
-	_, err = h.db.UpdateWalletBalance(ctx, tx.AccountID, amount)
+	// Create transaction record if it doesn't exist
+	if tx == nil {
+		ref := reference
+		_, err = h.db.CreateTransaction(ctx, accountID, "topup", amount, &ref)
+		if err != nil {
+			log.Printf("Webhook charge.success: failed to create transaction for ref %s: %v", reference, err)
+			return
+		}
+	}
+
+	_, err = h.db.UpdateWalletBalance(ctx, accountID, amount)
 	if err != nil {
-		log.Printf("Webhook charge.success: failed to credit wallet for account %s: %v", tx.AccountID, err)
+		log.Printf("Webhook charge.success: failed to credit wallet for account %s: %v", accountID, err)
 		return
 	}
 
 	h.db.MarkPaystackEventProcessed(ctx, eventID)
-	log.Printf("Webhook charge.success: credited %d cents to account %s (ref: %s)", amount, tx.AccountID, reference)
+	log.Printf("Webhook charge.success: credited %d cents to account %s (ref: %s)", amount, accountID, reference)
 }
 
 func (h *WebhookHandler) handleTransferSuccess(ctx context.Context, reference string, eventID uuid.UUID) {

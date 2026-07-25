@@ -35,20 +35,23 @@ function WalletPage() {
     if (ref && !verified) {
       setVerified(true);
       toast.loading("Verifying payment…", { id: "verify" });
-      store.verifyTopUp(ref).then((resp) => {
-        if (resp.status === "success") {
-          toast.success(`Payment verified · ${KES(resp.amount / 100)} added`, { id: "verify" });
-          store.refresh();
-        } else {
-          toast.error("Payment verification failed", { id: "verify" });
-        }
-        // Clean URL
-        window.history.replaceState({}, "", window.location.pathname);
-      }).catch(() => {
-        toast.error("Failed to verify payment", { id: "verify" });
-      });
+      store
+        .verifyTopUp(ref)
+        .then((resp) => {
+          if (resp.status === "success") {
+            toast.success(`Payment verified · ${KES(resp.amount / 100)} added`, { id: "verify" });
+            store.refresh();
+          } else {
+            toast.error("Payment verification failed", { id: "verify" });
+          }
+          // Clean URL
+          window.history.replaceState({}, "", window.location.pathname);
+        })
+        .catch(() => {
+          toast.error("Failed to verify payment", { id: "verify" });
+        });
     }
-  }, []);
+  }, [verified]);
 
   // Pre-fill email from localStorage if available
   useEffect(() => {
@@ -58,12 +61,15 @@ function WalletPage() {
         const u = JSON.parse(raw);
         if (u.email) setEmail(u.email);
       }
-    } catch {}
+    } catch {
+      // Ignore localStorage errors
+    }
   }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) return toast.error("Enter a valid email address");
+    if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/))
+      return toast.error("Enter a valid email address");
     if (amount < 10) return toast.error("Minimum top-up is KES 10");
     setPending(true);
     try {
@@ -71,9 +77,9 @@ function WalletPage() {
       await store.topUp(amount, email);
       // If no redirect happened (shouldn't reach here normally)
       setPending(false);
-    } catch (err: any) {
+    } catch (err) {
       setPending(false);
-      toast.error(err.message || "Failed to initialize payment", { id: "topup" });
+      toast.error((err as Error).message || "Failed to initiate payment", { id: "topup" });
     }
   };
 
@@ -86,7 +92,9 @@ function WalletPage() {
           <div className="absolute -right-10 -top-10 size-40 rounded-full bg-white/5 blur-2xl" />
           <div className="label-eyebrow text-anchor-foreground/60">Available balance</div>
           <div className="num mt-4 text-4xl font-semibold">{KES(balance)}</div>
-          <div className="mt-2 text-xs text-anchor-foreground/60">Spendable across all active campaigns</div>
+          <div className="mt-2 text-xs text-anchor-foreground/60">
+            Spendable across all active campaigns
+          </div>
           <div className="mt-6 flex items-center gap-2 border-t border-white/10 pt-4 text-xs text-anchor-foreground/70">
             <WalletIcon className="size-4" /> Real-time balance
           </div>
@@ -104,7 +112,9 @@ function WalletPage() {
                     type="button"
                     onClick={() => setAmount(v)}
                     className={`num rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                      amount === v ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
+                      amount === v
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-card text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     {v.toLocaleString()}
@@ -115,15 +125,26 @@ function WalletPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <label className="block">
                 <div className="mb-1.5 text-xs font-medium">Amount (KES)</div>
-                <input type="number" min={10} step={10} value={amount} onChange={(e) => setAmount(+e.target.value)}
-                  className="num h-11 w-full rounded-lg border border-border bg-card px-3 text-sm" />
+                <input
+                  type="number"
+                  min={10}
+                  step={10}
+                  value={amount}
+                  onChange={(e) => setAmount(+e.target.value)}
+                  className="num h-11 w-full rounded-lg border border-border bg-card px-3 text-sm"
+                />
               </label>
               <label className="block">
                 <div className="mb-1.5 text-xs font-medium">Email address</div>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" type="email"
-                    className="h-11 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm" />
+                  <input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    type="email"
+                    className="h-11 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm"
+                  />
                 </div>
               </label>
             </div>
@@ -158,22 +179,39 @@ function WalletPage() {
             </thead>
             <tbody>
               {wallet.length === 0 && (
-                <tr><td colSpan={4} className="px-6 py-8 text-center text-muted-foreground text-sm">No transactions yet</td></tr>
+                <tr>
+                  <td colSpan={4} className="px-6 py-8 text-center text-muted-foreground text-sm">
+                    No transactions yet
+                  </td>
+                </tr>
               )}
               {wallet.map((tx) => (
                 <tr key={tx.id} className="border-b border-border last:border-0">
                   <td className="px-6 py-4">
-                    <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      tx.type === "topup" || tx.type === "refund" ? "bg-success-soft text-success" : "bg-muted text-muted-foreground"
-                    }`}>
-                      {tx.type === "topup" || tx.type === "refund" ? <ArrowDownLeft className="size-3" /> : <ArrowUpRight className="size-3" />}
+                    <div
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        tx.type === "topup" || tx.type === "refund"
+                          ? "bg-success-soft text-success"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {tx.type === "topup" || tx.type === "refund" ? (
+                        <ArrowDownLeft className="size-3" />
+                      ) : (
+                        <ArrowUpRight className="size-3" />
+                      )}
                       {TX_LABELS[tx.type] || tx.type}
                     </div>
                   </td>
                   <td className="num px-6 py-4 text-xs text-muted-foreground">{tx.reference}</td>
-                  <td className="px-6 py-4 text-xs text-muted-foreground">{formatDate(tx.createdAt, true)}</td>
-                  <td className={`num px-6 py-4 text-right font-medium ${tx.type === "topup" || tx.type === "refund" ? "text-success" : "text-foreground"}`}>
-                    {tx.amount > 0 ? "+" : "−"}{KES(Math.abs(tx.amount))}
+                  <td className="px-6 py-4 text-xs text-muted-foreground">
+                    {formatDate(tx.createdAt, true)}
+                  </td>
+                  <td
+                    className={`num px-6 py-4 text-right font-medium ${tx.type === "topup" || tx.type === "refund" ? "text-success" : "text-foreground"}`}
+                  >
+                    {tx.amount > 0 ? "+" : "−"}
+                    {KES(Math.abs(tx.amount))}
                   </td>
                 </tr>
               ))}

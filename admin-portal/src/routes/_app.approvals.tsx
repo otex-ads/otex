@@ -39,15 +39,20 @@ function ApprovalsPage() {
         }),
       ]);
 
-      const [sites, campaigns, creatives] = await Promise.all([
+      const [sitesData, campaignsData, creativesData] = await Promise.all([
         sitesRes.json(),
         campaignsRes.json(),
         creativesRes.json(),
       ]);
 
-      setPendingSites(sites || []);
-      setPendingCampaigns(campaigns || []);
-      setPendingCreatives(creatives || []);
+      // Unwrap the backend's { success: true, data: ... } envelope
+      const sites = sitesData.success ? sitesData.data : sitesData;
+      const campaigns = campaignsData.success ? campaignsData.data : campaignsData;
+      const creatives = creativesData.success ? creativesData.data : creativesData;
+
+      setPendingSites(Array.isArray(sites) ? sites : []);
+      setPendingCampaigns(Array.isArray(campaigns) ? campaigns : []);
+      setPendingCreatives(Array.isArray(creatives) ? creatives : []);
     } catch (error) {
       console.error("Failed to fetch pending items:", error);
       toast.error("Failed to load pending items");

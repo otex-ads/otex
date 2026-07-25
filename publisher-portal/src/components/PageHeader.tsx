@@ -22,7 +22,9 @@ export function PageHeader({
     >
       <div>
         <div className="label-eyebrow mb-2">Overview</div>
-        <h1 className="display text-4xl font-normal tracking-tight text-foreground md:text-[2.75rem]">{title}</h1>
+        <h1 className="display text-4xl font-normal tracking-tight text-foreground md:text-[2.75rem]">
+          {title}
+        </h1>
         {description && (
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">{description}</p>
         )}

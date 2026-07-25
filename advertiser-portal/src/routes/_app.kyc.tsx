@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { FileText, Upload, CheckCircle, AlertCircle, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/_app/kyc")({
@@ -12,7 +18,9 @@ export const Route = createFileRoute("/_app/kyc")({
 });
 
 function KYCPage() {
-  const [status, setStatus] = useState<"pending" | "submitted" | "approved" | "rejected">("pending");
+  const [status, setStatus] = useState<"pending" | "submitted" | "approved" | "rejected">(
+    "pending",
+  );
   const [businessName, setBusinessName] = useState("");
   const [taxId, setTaxId] = useState("");
   const [documentType, setDocumentType] = useState("");
@@ -29,7 +37,9 @@ function KYCPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">KYC Verification</h1>
-        <p className="text-muted-foreground">Complete identity verification to unlock full platform features</p>
+        <p className="text-muted-foreground">
+          Complete identity verification to unlock full platform features
+        </p>
       </div>
 
       <Card>
@@ -50,11 +60,17 @@ function KYCPage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
-            <div className={`h-2 flex-1 rounded-full ${
-              status === "pending" ? "bg-muted" : 
-              status === "submitted" ? "bg-blue-500" : 
-              status === "approved" ? "bg-green-500" : "bg-red-500"
-            }`} />
+            <div
+              className={`h-2 flex-1 rounded-full ${
+                status === "pending"
+                  ? "bg-muted"
+                  : status === "submitted"
+                    ? "bg-blue-500"
+                    : status === "approved"
+                      ? "bg-green-500"
+                      : "bg-red-500"
+              }`}
+            />
           </div>
         </CardContent>
       </Card>
@@ -104,11 +120,7 @@ function KYCPage() {
             <div className="space-y-2">
               <Label htmlFor="document">Upload Document</Label>
               <div className="flex items-center gap-4">
-                <Input
-                  id="document"
-                  type="file"
-                  className="flex-1"
-                />
+                <Input id="document" type="file" className="flex-1" />
                 <Button variant="outline" size="icon">
                   <Upload className="size-4" />
                 </Button>

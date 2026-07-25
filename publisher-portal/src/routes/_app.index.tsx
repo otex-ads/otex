@@ -2,8 +2,27 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { MousePointerClick, Eye, TrendingUp, DollarSign, Plus, ArrowUpRight, Code2, Wallet as WalletIcon, Percent, Gauge } from "lucide-react";
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import {
+  MousePointerClick,
+  Eye,
+  TrendingUp,
+  DollarSign,
+  Plus,
+  ArrowUpRight,
+  Code2,
+  Wallet as WalletIcon,
+  Percent,
+  Gauge,
+} from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
 import { SurfaceCard, SectionLabel } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
 import { api, type StatsResponse, type Balance, type Site, type Zone } from "@/lib/api";
@@ -19,8 +38,18 @@ const RANGES = [
   { label: "90 days", days: 90 },
 ] as const;
 
-function StatCard({ label, value, sub, icon: Icon, delay = 0 }: {
-  label: string; value: string; sub?: string; icon: typeof Eye; delay?: number;
+function StatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  delay = 0,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  icon: typeof Eye;
+  delay?: number;
 }) {
   return (
     <SurfaceCard delay={delay} className="flex flex-col gap-4">
@@ -54,9 +83,20 @@ function Dashboard() {
   });
   const balance = useQuery<Balance>({ queryKey: ["balance"], queryFn: api.balance, retry: false });
   const sites = useQuery<Site[]>({ queryKey: ["sites"], queryFn: api.listSites, retry: false });
-  const zones = useQuery<Zone[]>({ queryKey: ["zones"], queryFn: () => api.listZones(), retry: false });
+  const zones = useQuery<Zone[]>({
+    queryKey: ["zones"],
+    queryFn: () => api.listZones(),
+    retry: false,
+  });
 
-  const summary = stats.data?.summary ?? { impressions: 0, clicks: 0, ctr: 0, ecpm: 0, revenue: 0, fillRate: 0 };
+  const summary = stats.data?.summary ?? {
+    impressions: 0,
+    clicks: 0,
+    ctr: 0,
+    ecpm: 0,
+    revenue: 0,
+    fillRate: 0,
+  };
   const daily = stats.data?.daily ?? [];
 
   const today = daily[daily.length - 1]?.revenue ?? 0;
@@ -64,12 +104,8 @@ function Dashboard() {
     .filter((d) => d.date.startsWith(to.slice(0, 7)))
     .reduce((sum, d) => sum + d.revenue, 0);
 
-  const topSites = [...(sites.data ?? [])]
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
-  const topZones = [...(zones.data ?? [])]
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
+  const topSites = [...(sites.data ?? [])].sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+  const topZones = [...(zones.data ?? [])].sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 
   return (
     <div className="space-y-8">
@@ -84,7 +120,9 @@ function Dashboard() {
         <div className="relative flex flex-wrap items-end justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-anchor-foreground/60">
-              <span>Overview</span><span className="text-anchor-foreground/30">/</span><span className="text-anchor-foreground/90">Last {days} days</span>
+              <span>Overview</span>
+              <span className="text-anchor-foreground/30">/</span>
+              <span className="text-anchor-foreground/90">Last {days} days</span>
             </div>
             <h1 className="display mt-4 text-5xl font-bold tracking-tight md:text-6xl">
               Your traffic, <span className="text-anchor-foreground/60">earning.</span>
@@ -94,13 +132,22 @@ function Dashboard() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link to="/sites" className="inline-flex items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-medium text-anchor hover:bg-white">
+            <Link
+              to="/sites"
+              className="inline-flex items-center gap-2 rounded-full bg-white/95 px-4 py-2 text-sm font-medium text-anchor hover:bg-white"
+            >
               <Plus className="size-4" /> Add site
             </Link>
-            <Link to="/adcode" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-anchor-foreground hover:bg-white/15">
+            <Link
+              to="/adcode"
+              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-anchor-foreground hover:bg-white/15"
+            >
               <Code2 className="size-4" /> Get ad code
             </Link>
-            <Link to="/payouts" className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-anchor-foreground hover:bg-white/15">
+            <Link
+              to="/payouts"
+              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-anchor-foreground hover:bg-white/15"
+            >
               <WalletIcon className="size-4" /> Request payout
             </Link>
           </div>
@@ -108,14 +155,37 @@ function Dashboard() {
       </motion.section>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <StatCard delay={0.04} label="Total earnings" value={USD(summary.revenue, { compact: true })} sub={`Last ${days} days`} icon={DollarSign} />
-        <StatCard delay={0.08} label="Today" value={USD(today, { compact: true })} sub="Rolling last day" icon={TrendingUp} />
-        <StatCard delay={0.12} label="This month" value={USD(thisMonth, { compact: true })} sub={`Available: ${USD(balance.data?.available ?? 0, { compact: true })}`} icon={WalletIcon} />
+        <StatCard
+          delay={0.04}
+          label="Total earnings"
+          value={USD(summary.revenue, { compact: true })}
+          sub={`Last ${days} days`}
+          icon={DollarSign}
+        />
+        <StatCard
+          delay={0.08}
+          label="Today"
+          value={USD(today, { compact: true })}
+          sub="Rolling last day"
+          icon={TrendingUp}
+        />
+        <StatCard
+          delay={0.12}
+          label="This month"
+          value={USD(thisMonth, { compact: true })}
+          sub={`Available: ${USD(balance.data?.available ?? 0, { compact: true })}`}
+          icon={WalletIcon}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-5">
         <StatCard delay={0.16} label="Impressions" value={Num(summary.impressions)} icon={Eye} />
-        <StatCard delay={0.18} label="Clicks" value={Num(summary.clicks)} icon={MousePointerClick} />
+        <StatCard
+          delay={0.18}
+          label="Clicks"
+          value={Num(summary.clicks)}
+          icon={MousePointerClick}
+        />
         <StatCard delay={0.2} label="CTR" value={Pct(summary.ctr)} icon={Percent} />
         <StatCard delay={0.22} label="eCPM" value={USD(summary.ecpm)} icon={TrendingUp} />
         <StatCard delay={0.24} label="Fill rate" value={Pct(summary.fillRate)} icon={Gauge} />
@@ -130,7 +200,9 @@ function Dashboard() {
                 key={r.days}
                 onClick={() => setDays(r.days)}
                 className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                  days === r.days ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  days === r.days
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {r.label}
@@ -152,12 +224,41 @@ function Dashboard() {
                     <stop offset="100%" stopColor="oklch(0.305 0.052 160)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="2 4" stroke="oklch(0 0 0 / 0.06)" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 11, fill: "oklch(0.48 0.012 150)" }} axisLine={false} tickLine={false}
-                  tickFormatter={(d) => new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })} />
-                <YAxis tick={{ fontSize: 11, fill: "oklch(0.48 0.012 150)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `KES ${v}`} width={50} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid oklch(0 0 0 / 0.06)", fontSize: 12 }} />
-                <Area type="monotone" dataKey="revenue" stroke="oklch(0.305 0.052 160)" fill="url(#rev)" strokeWidth={2} />
+                <CartesianGrid
+                  strokeDasharray="2 4"
+                  stroke="oklch(0 0 0 / 0.06)"
+                  vertical={false}
+                />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 11, fill: "oklch(0.48 0.012 150)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(d) =>
+                    new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+                  }
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "oklch(0.48 0.012 150)" }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `KES ${v}`}
+                  width={50}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 12,
+                    border: "1px solid oklch(0 0 0 / 0.06)",
+                    fontSize: 12,
+                  }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="oklch(0.305 0.052 160)"
+                  fill="url(#rev)"
+                  strokeWidth={2}
+                />
               </AreaChart>
             </ResponsiveContainer>
           )}
@@ -171,7 +272,10 @@ function Dashboard() {
               <SectionLabel>Top sites</SectionLabel>
               <div className="text-base font-semibold">By revenue</div>
             </div>
-            <Link to="/sites" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+            <Link
+              to="/sites"
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >
               View all <ArrowUpRight className="size-3" />
             </Link>
           </div>
@@ -187,7 +291,11 @@ function Dashboard() {
               </thead>
               <tbody>
                 {topSites.length === 0 && (
-                  <tr><td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">No sites yet</td></tr>
+                  <tr>
+                    <td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">
+                      No sites yet
+                    </td>
+                  </tr>
                 )}
                 {topSites.map((s) => (
                   <tr key={s.id} className="border-b border-border last:border-0">
@@ -198,7 +306,10 @@ function Dashboard() {
                     <td className="num px-6 py-4 text-right">{Num(s.impressions)}</td>
                     <td className="num px-6 py-4 text-right">{USD(s.revenue)}</td>
                     <td className="px-6 py-4">
-                      <StatusPill status={s.status[0].toUpperCase() + s.status.slice(1)} tone={s.status === "active" ? "success" : "warning"} />
+                      <StatusPill
+                        status={s.status[0].toUpperCase() + s.status.slice(1)}
+                        tone={s.status === "active" ? "success" : "warning"}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -213,7 +324,10 @@ function Dashboard() {
               <SectionLabel>Top zones</SectionLabel>
               <div className="text-base font-semibold">Best performers</div>
             </div>
-            <Link to="/zones" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+            <Link
+              to="/zones"
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >
               View all <ArrowUpRight className="size-3" />
             </Link>
           </div>
@@ -229,7 +343,11 @@ function Dashboard() {
               </thead>
               <tbody>
                 {topZones.length === 0 && (
-                  <tr><td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">No zones yet</td></tr>
+                  <tr>
+                    <td colSpan={4} className="px-6 py-10 text-center text-muted-foreground">
+                      No zones yet
+                    </td>
+                  </tr>
                 )}
                 {topZones.map((z) => (
                   <tr key={z.id} className="border-b border-border last:border-0">

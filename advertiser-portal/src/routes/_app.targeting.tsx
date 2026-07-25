@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Target, Users, Globe, Brain, TrendingUp } from "lucide-react";
 
@@ -28,7 +34,9 @@ function TargetingPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Advanced Targeting</h1>
-        <p className="text-muted-foreground">Configure advanced targeting options for your campaigns</p>
+        <p className="text-muted-foreground">
+          Configure advanced targeting options for your campaigns
+        </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
@@ -41,7 +49,9 @@ function TargetingPage() {
             <CardDescription>Target based on user behavior</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Past interactions, browsing history, purchase intent</p>
+            <p className="text-sm text-muted-foreground">
+              Past interactions, browsing history, purchase intent
+            </p>
           </CardContent>
         </Card>
 
@@ -54,7 +64,9 @@ function TargetingPage() {
             <CardDescription>Target based on content context</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Page content, keywords, categories, topics</p>
+            <p className="text-sm text-muted-foreground">
+              Page content, keywords, categories, topics
+            </p>
           </CardContent>
         </Card>
 

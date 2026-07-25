@@ -146,10 +146,10 @@ func main() {
 
 	// Configure CORS to allow requests from both portals
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://167.233.171.202:3000", "http://167.233.171.202:3001", "http://167.233.171.202:3003", "http://localhost:3000", "http://localhost:3001", "http://localhost:3003", "https://advertiser.otexads.com", "https://publisher.otexads.com", "https://admin.otexads.com", "https://api.otexads.com", "https://otexads.com", "https://www.otexads.com"},
+		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Origin", "Content-Type", "Authorization"},
-		AllowCredentials: true,
+		AllowCredentials: false,
 	})
 
 	handler := c.Handler(r)

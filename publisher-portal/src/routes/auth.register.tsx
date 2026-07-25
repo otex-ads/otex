@@ -54,10 +54,14 @@ function RegisterPage() {
           <img src="/logo.png" alt="OtexAds" className="size-10 object-contain" />
           <div className="leading-tight">
             <div className="text-base font-bold text-foreground">OtexAds</div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Publisher Portal</div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Publisher Portal
+            </div>
           </div>
         </div>
-        <h1 className="display text-3xl font-normal tracking-tight text-foreground">Create account</h1>
+        <h1 className="display text-3xl font-normal tracking-tight text-foreground">
+          Create account
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">Start monetizing your traffic today.</p>
 
         <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
@@ -102,7 +106,10 @@ function RegisterPage() {
             Create account
           </button>
           <p className="mt-2 text-center text-xs text-muted-foreground">
-            Already have an account? <Link to="/auth/login" className="text-primary hover:underline">Sign in</Link>
+            Already have an account?{" "}
+            <Link to="/auth/login" className="text-primary hover:underline">
+              Sign in
+            </Link>
           </p>
         </form>
       </motion.div>

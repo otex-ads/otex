@@ -22,13 +22,23 @@ const COUNTRIES = ["KE", "TZ", "UG", "NG", "ZA", "US", "GB", "IN", "BR"];
 const DEVICES = ["desktop", "mobile", "tablet"] as const;
 const OSES = ["android", "ios", "windows", "macos", "linux"] as const;
 
-function Chip({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: React.ReactNode }) {
+function Chip({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={`rounded-full border px-3 py-1 text-xs font-medium capitalize transition-colors ${
-        selected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"
+        selected
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-border bg-card text-muted-foreground hover:text-foreground"
       }`}
     >
       {children}
@@ -62,7 +72,11 @@ function NewCampaignPage() {
     try {
       await store.addCampaign({
         name: name.trim(),
-        format, pricingModel, bid, dailyBudget, totalBudget,
+        format,
+        pricingModel,
+        bid,
+        dailyBudget,
+        totalBudget,
         targeting: { countries, devices, os },
         creativeId: creativeId || undefined,
       });
@@ -76,11 +90,16 @@ function NewCampaignPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Link to="/campaigns" className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        to="/campaigns"
+        className="mb-6 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="size-4" /> Back to campaigns
       </Link>
       <h1 className="display text-4xl font-normal tracking-tight text-foreground">New campaign</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Configure targeting, pricing, and budget. You can pause or edit anytime.</p>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Configure targeting, pricing, and budget. You can pause or edit anytime.
+      </p>
 
       <form onSubmit={submit} className="mt-8 space-y-6">
         <SurfaceCard>
@@ -104,11 +123,15 @@ function NewCampaignPage() {
                   type="button"
                   onClick={() => setFormat(f.value)}
                   className={`rounded-xl border p-3 text-left transition-all ${
-                    format === f.value ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"
+                    format === f.value
+                      ? "border-primary bg-primary/5"
+                      : "border-border bg-card hover:border-primary/40"
                   }`}
                 >
                   <div className="text-sm font-medium text-foreground">{f.label}</div>
-                  <div className="mt-1 text-[11px] leading-snug text-muted-foreground">{f.desc}</div>
+                  <div className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                    {f.desc}
+                  </div>
                 </button>
               ))}
             </div>
@@ -132,19 +155,37 @@ function NewCampaignPage() {
             </label>
             <label className="block">
               <div className="mb-1.5 text-xs font-medium">Bid amount (KES)</div>
-              <input type="number" min={0.1} step={0.1} value={bid} onChange={(e) => setBid(+e.target.value)}
-                className="num h-10 w-full rounded-lg border border-border bg-card px-3 text-sm" />
+              <input
+                type="number"
+                min={0.1}
+                step={0.1}
+                value={bid}
+                onChange={(e) => setBid(+e.target.value)}
+                className="num h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
+              />
             </label>
             <div />
             <label className="block">
               <div className="mb-1.5 text-xs font-medium">Daily budget (KES)</div>
-              <input type="number" min={0} step={100} value={dailyBudget} onChange={(e) => setDailyBudget(+e.target.value)}
-                className="num h-10 w-full rounded-lg border border-border bg-card px-3 text-sm" />
+              <input
+                type="number"
+                min={0}
+                step={100}
+                value={dailyBudget}
+                onChange={(e) => setDailyBudget(+e.target.value)}
+                className="num h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
+              />
             </label>
             <label className="block md:col-span-2">
               <div className="mb-1.5 text-xs font-medium">Total budget (KES)</div>
-              <input type="number" min={0} step={500} value={totalBudget} onChange={(e) => setTotalBudget(+e.target.value)}
-                className="num h-10 w-full rounded-lg border border-border bg-card px-3 text-sm" />
+              <input
+                type="number"
+                min={0}
+                step={500}
+                value={totalBudget}
+                onChange={(e) => setTotalBudget(+e.target.value)}
+                className="num h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
+              />
             </label>
           </div>
         </SurfaceCard>
@@ -156,7 +197,13 @@ function NewCampaignPage() {
               <div className="mb-2 text-xs font-medium">Countries</div>
               <div className="flex flex-wrap gap-2">
                 {COUNTRIES.map((c) => (
-                  <Chip key={c} selected={countries.includes(c)} onClick={() => toggle(countries, c, setCountries)}>{c}</Chip>
+                  <Chip
+                    key={c}
+                    selected={countries.includes(c)}
+                    onClick={() => toggle(countries, c, setCountries)}
+                  >
+                    {c}
+                  </Chip>
                 ))}
               </div>
             </div>
@@ -164,7 +211,13 @@ function NewCampaignPage() {
               <div className="mb-2 text-xs font-medium">Devices</div>
               <div className="flex flex-wrap gap-2">
                 {DEVICES.map((d) => (
-                  <Chip key={d} selected={devices.includes(d)} onClick={() => toggle(devices, d, setDevices)}>{d}</Chip>
+                  <Chip
+                    key={d}
+                    selected={devices.includes(d)}
+                    onClick={() => toggle(devices, d, setDevices)}
+                  >
+                    {d}
+                  </Chip>
                 ))}
               </div>
             </div>
@@ -172,7 +225,9 @@ function NewCampaignPage() {
               <div className="mb-2 text-xs font-medium">Operating systems</div>
               <div className="flex flex-wrap gap-2">
                 {OSES.map((o) => (
-                  <Chip key={o} selected={os.includes(o)} onClick={() => toggle(os, o, setOs)}>{o}</Chip>
+                  <Chip key={o} selected={os.includes(o)} onClick={() => toggle(os, o, setOs)}>
+                    {o}
+                  </Chip>
                 ))}
               </div>
             </div>
@@ -183,22 +238,40 @@ function NewCampaignPage() {
           <SectionLabel>Creative</SectionLabel>
           <label className="block">
             <div className="mb-1.5 text-xs font-medium">Attach a creative (optional)</div>
-            <select value={creativeId} onChange={(e) => setCreativeId(e.target.value)}
-              className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm">
+            <select
+              value={creativeId}
+              onChange={(e) => setCreativeId(e.target.value)}
+              className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
+            >
               <option value="">— none —</option>
-              {creatives.filter((c) => c.format === format).map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
+              {creatives
+                .filter((c) => c.format === format)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
             </select>
             <div className="mt-2 text-xs text-muted-foreground">
-              Only creatives matching the selected format are shown. <Link to="/creatives" className="text-primary hover:underline">Manage creatives →</Link>
+              Only creatives matching the selected format are shown.{" "}
+              <Link to="/creatives" className="text-primary hover:underline">
+                Manage creatives →
+              </Link>
             </div>
           </label>
         </SurfaceCard>
 
         <div className="flex justify-end gap-3">
-          <Link to="/campaigns" className="rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium hover:bg-muted">Cancel</Link>
-          <button type="submit" className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:brightness-110">
+          <Link
+            to="/campaigns"
+            className="rounded-full border border-border bg-card px-5 py-2.5 text-sm font-medium hover:bg-muted"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            className="rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:brightness-110"
+          >
             Launch campaign
           </button>
         </div>

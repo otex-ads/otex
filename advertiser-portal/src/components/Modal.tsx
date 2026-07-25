@@ -70,7 +70,8 @@ export function FormField({ label, required, children, hint }: FormFieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-xs font-medium text-foreground">
-        {label}{required && <span className="ml-0.5 text-danger">*</span>}
+        {label}
+        {required && <span className="ml-0.5 text-danger">*</span>}
       </label>
       {children}
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
@@ -78,8 +79,10 @@ export function FormField({ label, required, children, hint }: FormFieldProps) {
   );
 }
 
-export const inputCls = "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
-export const selectCls = "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
+export const inputCls =
+  "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
+export const selectCls =
+  "h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
 
 interface ModalActionsProps {
   onCancel: () => void;
@@ -89,7 +92,13 @@ interface ModalActionsProps {
   confirmVariant?: "primary" | "danger" | "success";
 }
 
-export function ModalActions({ onCancel, onConfirm, loading, confirmLabel = "Confirm", confirmVariant = "primary" }: ModalActionsProps) {
+export function ModalActions({
+  onCancel,
+  onConfirm,
+  loading,
+  confirmLabel = "Confirm",
+  confirmVariant = "primary",
+}: ModalActionsProps) {
   const variants = {
     primary: "bg-primary text-primary-foreground hover:brightness-110",
     danger: "bg-danger text-danger-foreground hover:brightness-110",

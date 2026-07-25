@@ -50,17 +50,25 @@ async function fetchFromAPI() {
 
 export const store = {
   get: () => state,
-  subscribe: (fn: () => void) => { listeners.add(fn); return () => listeners.delete(fn); },
+  subscribe: (fn: () => void) => {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  },
   refresh: fetchFromAPI,
 
-  async addCampaign(input: Omit<Campaign, "id" | "spent" | "impressions" | "clicks" | "conversions" | "status" | "createdAt"> & { status?: CampaignStatus }) {
+  async addCampaign(
+    input: Omit<
+      Campaign,
+      "id" | "spent" | "impressions" | "clicks" | "conversions" | "status" | "createdAt"
+    > & { status?: CampaignStatus },
+  ) {
     const c = await api.createCampaign(input);
     set((s) => ({ ...s, campaigns: [c, ...s.campaigns] }));
     return c;
   },
   async updateCampaign(id: string, patch: Partial<Campaign>) {
     const c = await api.updateCampaign(id, patch);
-    set((s) => ({ ...s, campaigns: s.campaigns.map((x) => x.id === id ? c : x) }));
+    set((s) => ({ ...s, campaigns: s.campaigns.map((x) => (x.id === id ? c : x)) }));
     return c;
   },
   removeCampaign(id: string) {
@@ -96,5 +104,9 @@ export const store = {
 };
 
 export function useStore<T>(selector: (s: State) => T): T {
-  return useSyncExternalStore(store.subscribe, () => selector(store.get()), () => selector(store.get()));
+  return useSyncExternalStore(
+    store.subscribe,
+    () => selector(store.get()),
+    () => selector(store.get()),
+  );
 }

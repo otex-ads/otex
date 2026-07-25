@@ -260,3 +260,33 @@ func (c *Client) UpdateZoneConversionRate(ctx context.Context, zoneID string, ra
 	key := fmt.Sprintf("perf:zone:%s:conv_rate", zoneID)
 	return c.client.Set(ctx, key, rate, 24*time.Hour).Err()
 }
+
+// Generic Redis operations
+
+func (c *Client) Get(ctx context.Context, key string) (string, error) {
+	return c.client.Get(ctx, key).Result()
+}
+
+func (c *Client) Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	return c.client.Set(ctx, key, value, expiration).Err()
+}
+
+func (c *Client) Del(ctx context.Context, keys ...string) error {
+	return c.client.Del(ctx, keys...).Err()
+}
+
+func (c *Client) LPush(ctx context.Context, key string, values ...interface{}) error {
+	return c.client.LPush(ctx, key, values...).Err()
+}
+
+func (c *Client) Publish(ctx context.Context, channel string, message interface{}) error {
+	return c.client.Publish(ctx, channel, message).Err()
+}
+
+func (c *Client) SMembers(ctx context.Context, key string) ([]string, error) {
+	return c.client.SMembers(ctx, key).Result()
+}
+
+func (c *Client) SAdd(ctx context.Context, key string, members ...interface{}) error {
+	return c.client.SAdd(ctx, key, members...).Err()
+}

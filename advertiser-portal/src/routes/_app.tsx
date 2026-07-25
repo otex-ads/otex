@@ -1,7 +1,20 @@
 import { createFileRoute, Outlet, Link, useRouterState } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard, Megaphone, ImageIcon, Wallet, BarChart3, Menu, X, Plus, Globe, Target, Shield, MessageSquare, FileText, LogOut,
+  LayoutDashboard,
+  Megaphone,
+  ImageIcon,
+  Wallet,
+  BarChart3,
+  Menu,
+  X,
+  Plus,
+  Globe,
+  Target,
+  Shield,
+  MessageSquare,
+  FileText,
+  LogOut,
 } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
@@ -27,8 +40,18 @@ const menu = [
   { to: "/stats", label: "Statistics", icon: BarChart3 },
 ] as const;
 
-function NavItem({ to, label, icon: Icon, exact, onClick }: {
-  to: string; label: string; icon: typeof LayoutDashboard; exact?: boolean; onClick?: () => void;
+function NavItem({
+  to,
+  label,
+  icon: Icon,
+  exact,
+  onClick,
+}: {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact?: boolean;
+  onClick?: () => void;
 }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const active = exact ? pathname === to : pathname === to || pathname.startsWith(to + "/");
@@ -37,7 +60,9 @@ function NavItem({ to, label, icon: Icon, exact, onClick }: {
       to={to}
       onClick={onClick}
       className={`group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-        active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+        active
+          ? "bg-primary text-primary-foreground"
+          : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
       }`}
     >
       <Icon className="size-4" />
@@ -62,18 +87,26 @@ function AppLayout() {
         <img src="/logo.png" alt="OtexAds" className="size-9 object-contain" />
         <div className="leading-tight">
           <div className="text-sm font-bold text-foreground">OtexAds</div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Advertiser</div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Advertiser
+          </div>
         </div>
       </Link>
       <div className="label-eyebrow mb-2 px-3">Workspace</div>
       <nav className="flex flex-col gap-0.5">
-        {menu.map((m) => <NavItem key={m.to} {...m} onClick={onNav} />)}
+        {menu.map((m) => (
+          <NavItem key={m.to} {...m} onClick={onNav} />
+        ))}
       </nav>
       <div className="mt-auto flex flex-col gap-3">
         <div className="rounded-xl bg-muted/60 p-4 text-xs">
           <div className="label-eyebrow">Wallet balance</div>
           <div className="num mt-1 text-lg font-semibold text-foreground">{KES(balance)}</div>
-          <Link to="/wallet" onClick={onNav} className="mt-2 inline-flex items-center gap-1 text-primary hover:underline">
+          <Link
+            to="/wallet"
+            onClick={onNav}
+            className="mt-2 inline-flex items-center gap-1 text-primary hover:underline"
+          >
             <Plus className="size-3" /> Top up
           </Link>
         </div>
@@ -91,7 +124,10 @@ function AppLayout() {
   return (
     <div className="flex min-h-screen bg-background">
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setMobileOpen(false)} />
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
       )}
       {mobileOpen && (
         <aside className="fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col gap-1 border-r border-border bg-sidebar p-5 lg:hidden">
@@ -120,7 +156,9 @@ function AppLayout() {
             </button>
             <div>
               <div className="text-base font-bold text-foreground">Advertiser Console</div>
-              <div className="text-xs text-muted-foreground">Manage campaigns, creatives, and spend</div>
+              <div className="text-xs text-muted-foreground">
+                Manage campaigns, creatives, and spend
+              </div>
             </div>
           </div>
           <div className="hidden items-center gap-4 md:flex">

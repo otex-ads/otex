@@ -53,10 +53,14 @@ function LoginPage() {
           <img src="/logo.png" alt="OtexAds" className="size-10 object-contain" />
           <div className="leading-tight">
             <div className="text-base font-bold text-foreground">OtexAds</div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Publisher Portal</div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Publisher Portal
+            </div>
           </div>
         </div>
-        <h1 className="display text-3xl font-normal tracking-tight text-foreground">Welcome back.</h1>
+        <h1 className="display text-3xl font-normal tracking-tight text-foreground">
+          Welcome back.
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">Sign in to monetize your traffic.</p>
 
         <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
@@ -91,7 +95,10 @@ function LoginPage() {
             Sign in
           </button>
           <p className="mt-2 text-center text-xs text-muted-foreground">
-            No account yet? <Link to="/auth/register" className="text-primary hover:underline">Create account</Link>
+            No account yet?{" "}
+            <Link to="/auth/register" className="text-primary hover:underline">
+              Create account
+            </Link>
           </p>
         </form>
       </motion.div>

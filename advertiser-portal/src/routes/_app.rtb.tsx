@@ -4,7 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { BarChart3, Zap, DollarSign, Settings } from "lucide-react";
 
@@ -28,7 +34,9 @@ function RTBPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">RTB/SSP Settings</h1>
-        <p className="text-muted-foreground">Configure real-time bidding and supply-side platform integration</p>
+        <p className="text-muted-foreground">
+          Configure real-time bidding and supply-side platform integration
+        </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
@@ -41,7 +49,9 @@ function RTBPage() {
             <CardDescription>Auction-based ad delivery</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Maximize revenue through real-time auctions</p>
+            <p className="text-sm text-muted-foreground">
+              Maximize revenue through real-time auctions
+            </p>
           </CardContent>
         </Card>
 
@@ -81,7 +91,9 @@ function RTBPage() {
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label>Enable RTB</Label>
-              <p className="text-sm text-muted-foreground">Allow real-time bidding for your campaigns</p>
+              <p className="text-sm text-muted-foreground">
+                Allow real-time bidding for your campaigns
+              </p>
             </div>
             <Switch checked={enabled} onCheckedChange={setEnabled} />
           </div>
@@ -98,7 +110,9 @@ function RTBPage() {
                   onChange={(e) => setFloorPrice(e.target.value)}
                   placeholder="0.01"
                 />
-                <p className="text-xs text-muted-foreground">Minimum bid price per 1000 impressions</p>
+                <p className="text-xs text-muted-foreground">
+                  Minimum bid price per 1000 impressions
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -118,19 +132,12 @@ function RTBPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="sspEndpoint">SSP Endpoint</Label>
-                <Input
-                  id="sspEndpoint"
-                  placeholder="https://ssp.example.com/bid"
-                />
+                <Input id="sspEndpoint" placeholder="https://ssp.example.com/bid" />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="sspApiKey">SSP API Key</Label>
-                <Input
-                  id="sspApiKey"
-                  type="password"
-                  placeholder="Enter SSP API key"
-                />
+                <Input id="sspApiKey" type="password" placeholder="Enter SSP API key" />
               </div>
             </>
           )}
