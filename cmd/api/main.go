@@ -94,6 +94,7 @@ func main() {
 	protected.HandleFunc("/zones", zoneHandler.ListZones).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/zones/{id}", zoneHandler.GetZone).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/zones/{id}/stats", zoneHandler.GetZoneStats).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/zones/{id}/tag", zoneHandler.GetZoneTag).Methods("GET", "OPTIONS")
 
 	// Wallet routes
 	walletHandler := NewWalletHandler(db, redisClient, paystackClient)

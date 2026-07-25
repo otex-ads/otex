@@ -339,43 +339,96 @@ func (h *CampaignHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	startDate := r.URL.Query().Get("start_date")
 	endDate := r.URL.Query().Get("end_date")
 
-	query := `
-		SELECT 
-			COALESCE(SUM(impressions), 0) as impressions,
-			COALESCE(SUM(clicks), 0) as clicks,
-			COALESCE(SUM(conversions), 0) as conversions,
-			COALESCE(SUM(spend_cents), 0) as spend_cents,
-			COUNT(DISTINCT DATE(created_at)) as days
-		FROM stats
-		WHERE campaign_id = $1 AND advertiser_id = $2
+	// Query impressions table
+	impressionsQuery := `
+		SELECT COALESCE(COUNT(*), 0) as count, COALESCE(SUM(cost_cents), 0) as spend
+		FROM impressions
+		WHERE campaign_id = $1 AND is_fraud = false
 	`
 
-	var args []interface{}
-	args = append(args, id, accountID)
+	var impArgs []interface{}
+	impArgs = append(impArgs, id)
 
 	if startDate != "" {
-		query += " AND DATE(created_at) >= $" + string(rune(len(args)+1))
-		args = append(args, startDate)
+		impressionsQuery += " AND DATE(occurred_at) >= $" + string(rune(len(impArgs)+1))
+		impArgs = append(impArgs, startDate)
 	}
 	if endDate != "" {
-		query += " AND DATE(created_at) <= $" + string(rune(len(args)+1))
-		args = append(args, endDate)
+		impressionsQuery += " AND DATE(occurred_at) <= $" + string(rune(len(impArgs)+1))
+		impArgs = append(impArgs, endDate)
 	}
 
-	var stats struct {
-		Impressions  int64 `json:"impressions"`
-		Clicks       int64 `json:"clicks"`
-		Conversions  int64 `json:"conversions"`
-		SpendCents   int64 `json:"spend_cents"`
-		Days         int   `json:"days"`
-	}
-
-	err = h.db.Pool().QueryRow(r.Context(), query, args...).Scan(
-		&stats.Impressions, &stats.Clicks, &stats.Conversions, &stats.SpendCents, &stats.Days,
-	)
+	var impressionsCount, impressionsSpend int64
+	err = h.db.Pool().QueryRow(r.Context(), impressionsQuery, impArgs...).Scan(&impressionsCount, &impressionsSpend)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "Database error")
 		return
+	}
+
+	// Query clicks table
+	clicksQuery := `
+		SELECT COALESCE(COUNT(*), 0) as count, COALESCE(SUM(cost_cents), 0) as spend
+		FROM clicks
+		WHERE campaign_id = $1 AND is_fraud = false
+	`
+
+	var clickArgs []interface{}
+	clickArgs = append(clickArgs, id)
+
+	if startDate != "" {
+		clicksQuery += " AND DATE(occurred_at) >= $" + string(rune(len(clickArgs)+1))
+		clickArgs = append(clickArgs, startDate)
+	}
+	if endDate != "" {
+		clicksQuery += " AND DATE(occurred_at) <= $" + string(rune(len(clickArgs)+1))
+		clickArgs = append(clickArgs, endDate)
+	}
+
+	var clicksCount, clicksSpend int64
+	err = h.db.Pool().QueryRow(r.Context(), clicksQuery, clickArgs...).Scan(&clicksCount, &clicksSpend)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+
+	// Query conversions table
+	conversionsQuery := `
+		SELECT COALESCE(COUNT(*), 0) as count, COALESCE(SUM(payout_cents), 0) as payout
+		FROM conversions
+		WHERE campaign_id = $1
+	`
+
+	var convArgs []interface{}
+	convArgs = append(convArgs, id)
+
+	if startDate != "" {
+		conversionsQuery += " AND DATE(occurred_at) >= $" + string(rune(len(convArgs)+1))
+		convArgs = append(convArgs, startDate)
+	}
+	if endDate != "" {
+		conversionsQuery += " AND DATE(occurred_at) <= $" + string(rune(len(convArgs)+1))
+		convArgs = append(convArgs, endDate)
+	}
+
+	var conversionsCount, conversionsPayout int64
+	err = h.db.Pool().QueryRow(r.Context(), conversionsQuery, convArgs...).Scan(&conversionsCount, &conversionsPayout)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+
+	// Calculate CTR
+	var ctr float64
+	if impressionsCount > 0 {
+		ctr = float64(clicksCount) / float64(impressionsCount) * 100
+	}
+
+	stats := map[string]interface{}{
+		"impressions": impressionsCount,
+		"clicks":      clicksCount,
+		"conversions": conversionsCount,
+		"ctr":         ctr,
+		"spend_cents": impressionsSpend + clicksSpend,
 	}
 
 	httpx.JSON(w, http.StatusOK, stats)
@@ -575,6 +628,32 @@ func (h *ZoneHandler) DeleteSite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *ZoneHandler) GetZoneTag(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	zoneID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid zone ID")
+		return
+	}
+
+	// Verify zone exists
+	zone, err := h.db.GetZoneByID(r.Context(), zoneID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if zone == nil {
+		httpx.Error(w, http.StatusNotFound, "Zone not found")
+		return
+	}
+
+	// Return the ad tag HTML snippet
+	tagHTML := fmt.Sprintf(`<script async src="https://cdn.otexads.com/tag.js" data-zone-id="%s"></script>`, zoneID)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(tagHTML))
 }
 
 func (h *ZoneHandler) ListZones(w http.ResponseWriter, r *http.Request) {

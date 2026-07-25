@@ -61,6 +61,7 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/serve", adserve.ServeAd).Methods("GET")
 	r.HandleFunc("/click", adserve.HandleClick).Methods("GET")
+	r.HandleFunc("/tag.js", adserve.ServeTagJS).Methods("GET")
 	r.HandleFunc("/healthz", adserve.Health).Methods("GET")
 
 	srv := &http.Server{
@@ -382,6 +383,23 @@ func (h *AdserveHandler) HandleClick(w http.ResponseWriter, r *http.Request) {
 func (h *AdserveHandler) Health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
+}
+
+func (h *AdserveHandler) ServeTagJS(w http.ResponseWriter, r *http.Request) {
+	// Serve the tag.js file with aggressive caching
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=3600, immutable") // Cache for 1 hour
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	
+	// Read the tag.js file
+	tagJS, err := os.ReadFile("tag.js")
+	if err != nil {
+		http.Error(w, "Tag file not found", http.StatusNotFound)
+		return
+	}
+	
+	w.WriteHeader(http.StatusOK)
+	w.Write(tagJS)
 }
 
 // betaSample generates a sample from Beta distribution using rejection sampling
