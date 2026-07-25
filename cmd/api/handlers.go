@@ -489,6 +489,94 @@ func (h *ZoneHandler) ListSites(w http.ResponseWriter, r *http.Request) {
 	httpx.JSON(w, http.StatusOK, sites)
 }
 
+type UpdateSiteRequest struct {
+	Domain string `json:"domain"`
+}
+
+func (h *ZoneHandler) UpdateSite(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := mw.AccountIDFromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	vars := mux.Vars(r)
+	siteID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid site ID")
+		return
+	}
+
+	existing, err := h.db.GetSiteByID(r.Context(), siteID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if existing == nil {
+		httpx.Error(w, http.StatusNotFound, "Site not found")
+		return
+	}
+	if existing.PublisherID != accountID {
+		httpx.Error(w, http.StatusForbidden, "Access denied")
+		return
+	}
+
+	var req UpdateSiteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	domain := req.Domain
+	if domain == "" {
+		domain = existing.Domain
+	}
+
+	site, err := h.db.UpdateSite(r.Context(), siteID, domain)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to update site")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, site)
+}
+
+func (h *ZoneHandler) DeleteSite(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := mw.AccountIDFromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	vars := mux.Vars(r)
+	siteID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid site ID")
+		return
+	}
+
+	existing, err := h.db.GetSiteByID(r.Context(), siteID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if existing == nil {
+		httpx.Error(w, http.StatusNotFound, "Site not found")
+		return
+	}
+	if existing.PublisherID != accountID {
+		httpx.Error(w, http.StatusForbidden, "Access denied")
+		return
+	}
+
+	if err := h.db.DeleteSite(r.Context(), siteID); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to delete site")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (h *ZoneHandler) ListZones(w http.ResponseWriter, r *http.Request) {
 	accountID, ok := mw.AccountIDFromContext(r.Context())
 	if !ok {

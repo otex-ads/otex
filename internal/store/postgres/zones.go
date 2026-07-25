@@ -111,6 +111,32 @@ func (db *DB) UpdateSiteStatus(ctx context.Context, id uuid.UUID, status string)
 	return err
 }
 
+func (db *DB) UpdateSite(ctx context.Context, id uuid.UUID, domain string) (*Site, error) {
+	const query = `
+		UPDATE sites SET domain = $2
+		WHERE id = $1
+		RETURNING id, publisher_id, domain, status, created_at
+	`
+	var site Site
+	err := db.pool.QueryRow(ctx, query, id, domain).Scan(
+		&site.ID,
+		&site.PublisherID,
+		&site.Domain,
+		&site.Status,
+		&site.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &site, nil
+}
+
+func (db *DB) DeleteSite(ctx context.Context, id uuid.UUID) error {
+	const query = `DELETE FROM sites WHERE id = $1`
+	_, err := db.pool.Exec(ctx, query, id)
+	return err
+}
+
 func (db *DB) CreateZone(ctx context.Context, siteID uuid.UUID, name, format string, floorPriceCents int, status string) (*Zone, error) {
 	const query = `
 		INSERT INTO zones (site_id, name, format, floor_price_cents, status)

@@ -88,6 +88,8 @@ func main() {
 	zoneHandler := NewZoneHandler(db)
 	protected.HandleFunc("/sites", zoneHandler.ListSites).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/sites", zoneHandler.CreateSite).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/sites/{id}", zoneHandler.UpdateSite).Methods("PUT", "PATCH", "OPTIONS")
+	protected.HandleFunc("/sites/{id}", zoneHandler.DeleteSite).Methods("DELETE", "OPTIONS")
 	protected.HandleFunc("/sites/{id}/zones", zoneHandler.CreateZone).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/zones", zoneHandler.ListZones).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/zones/{id}", zoneHandler.GetZone).Methods("GET", "OPTIONS")
