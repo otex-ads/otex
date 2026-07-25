@@ -117,5 +117,38 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  advertiser-portal:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.advertiser-portal
+    container_name: adnet-advertiser-portal
+    environment:
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  publisher-portal:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.publisher-portal
+    container_name: adnet-publisher-portal
+    environment:
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+  admin-portal:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.admin-portal
+    container_name: adnet-admin-portal
+    environment:
+      PORT: 3003
+    ports:
+      - "3003:3003"
+    restart: unless-stopped
+
 volumes:
   postgres_data:
