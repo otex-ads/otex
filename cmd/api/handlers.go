@@ -322,7 +322,7 @@ func (h *CampaignHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *CampaignHandler) GetStats(w http.ResponseWriter, r *http.Request) {
-	accountID, ok := mw.AccountIDFromContext(r.Context())
+	_, ok := mw.AccountIDFromContext(r.Context())
 	if !ok {
 		httpx.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
