@@ -1056,7 +1056,7 @@ func (h *AdminHandler) ListPendingCreatives(w http.ResponseWriter, r *http.Reque
 	const query = `
 		SELECT id, campaign_id, type, status, created_at
 		FROM creatives
-		WHERE status = 'pending'
+		WHERE status = 'pending_review'
 		ORDER BY created_at ASC
 	`
 
