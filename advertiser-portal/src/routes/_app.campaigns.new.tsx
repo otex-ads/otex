@@ -67,6 +67,7 @@ function NewCampaignPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Form submission started");
     if (!name.trim()) return toast.error("Name is required");
     if (countries.length === 0) return toast.error("Pick at least one country");
     if (bid <= 0) return toast.error("Bid must be greater than 0");
@@ -74,7 +75,19 @@ function NewCampaignPage() {
     if (totalBudget <= 0) return toast.error("Total budget must be greater than 0");
     if (dailyBudget > totalBudget) return toast.error("Daily budget cannot exceed total budget");
 
+    console.log("Validation passed, preparing campaign data:", {
+      name: name.trim(),
+      format,
+      pricingModel,
+      bid,
+      dailyBudget,
+      totalBudget,
+      targeting: { countries, devices, os },
+      creativeId: creativeId || undefined,
+    });
+
     try {
+      console.log("Calling store.addCampaign...");
       await store.addCampaign({
         name: name.trim(),
         format,
@@ -85,6 +98,7 @@ function NewCampaignPage() {
         targeting: { countries, devices, os },
         creativeId: creativeId || undefined,
       });
+      console.log("Campaign created successfully");
       toast.success("Campaign launched");
       nav({ to: "/campaigns" });
     } catch (err) {
