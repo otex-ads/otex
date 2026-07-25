@@ -158,3 +158,25 @@ func (db *DB) UpdateCampaignStatus(ctx context.Context, id uuid.UUID, status str
 	_, err := db.pool.Exec(ctx, query, id, status)
 	return err
 }
+
+func (db *DB) CreateTargetingRule(ctx context.Context, campaignID uuid.UUID, countries, devices, os []string) (*struct {
+	ID         uuid.UUID
+	CampaignID uuid.UUID
+}, error) {
+	const query = `
+		INSERT INTO targeting_rules (campaign_id, countries, device_types, os)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, campaign_id
+	`
+
+	var result struct {
+		ID         uuid.UUID
+		CampaignID uuid.UUID
+	}
+	err := db.pool.QueryRow(ctx, query, campaignID, countries, devices, os).Scan(&result.ID, &result.CampaignID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
+}

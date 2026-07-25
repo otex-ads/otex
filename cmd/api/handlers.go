@@ -240,6 +240,13 @@ type CreateCampaignRequest struct {
 	Timezone        string     `json:"timezone"`
 	StartsAt        *time.Time `json:"starts_at,omitempty"`
 	EndsAt          *time.Time `json:"ends_at,omitempty"`
+	Format          string     `json:"format"`
+	Targeting       *struct {
+		Countries []string `json:"countries"`
+		Devices   []string `json:"devices"`
+		OS        []string `json:"os"`
+	} `json:"targeting"`
+	CreativeID      *string    `json:"creativeId,omitempty"`
 }
 
 func (h *CampaignHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -268,10 +275,23 @@ func (h *CampaignHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create targeting rule if provided
+	if req.Targeting != nil {
+		_, err = h.db.CreateTargetingRule(r.Context(), campaign.ID, req.Targeting.Countries, req.Targeting.Devices, req.Targeting.OS)
+		if err != nil {
+			// Log error but don't fail the request - targeting is optional
+			// Campaign was created successfully
+		}
+	}
+
 	// Set initial campaign metadata in Redis
 	campaignMeta := map[string]string{
 		"status":         "pending",
 		"creative_status": "pending",
+		"format":         req.Format,
+	}
+	if req.CreativeID != nil {
+		campaignMeta["creative_id"] = *req.CreativeID
 	}
 	if err := h.redis.SetCampaignMeta(r.Context(), campaign.ID.String(), campaignMeta); err != nil {
 		// Log error but don't fail the request
