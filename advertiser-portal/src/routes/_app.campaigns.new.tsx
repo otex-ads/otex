@@ -69,6 +69,11 @@ function NewCampaignPage() {
     e.preventDefault();
     if (!name.trim()) return toast.error("Name is required");
     if (countries.length === 0) return toast.error("Pick at least one country");
+    if (bid <= 0) return toast.error("Bid must be greater than 0");
+    if (dailyBudget <= 0) return toast.error("Daily budget must be greater than 0");
+    if (totalBudget <= 0) return toast.error("Total budget must be greater than 0");
+    if (dailyBudget > totalBudget) return toast.error("Daily budget cannot exceed total budget");
+
     try {
       await store.addCampaign({
         name: name.trim(),
@@ -83,6 +88,7 @@ function NewCampaignPage() {
       toast.success("Campaign launched");
       nav({ to: "/campaigns" });
     } catch (err) {
+      console.error("Campaign creation error:", err);
       const msg = err instanceof Error ? err.message : "Failed to create campaign";
       toast.error(msg);
     }
