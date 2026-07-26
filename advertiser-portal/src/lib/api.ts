@@ -204,6 +204,9 @@ class ApiClient {
       daily_budget_cents: Math.round(data.dailyBudget * 100),
       total_budget_cents: Math.round(data.totalBudget * 100),
       timezone: "Africa/Nairobi",
+      format: data.format,
+      targeting: data.targeting,
+      creativeId: data.creativeId,
     };
     const backendCampaign = await this.request<{
       id: string;
