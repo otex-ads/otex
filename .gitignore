@@ -46,3 +46,6 @@ Thumbs.db
 *.tar.gz
 *.zip
 tmp/
+
+# Accidental nested repo
+otex/

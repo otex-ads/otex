@@ -35,8 +35,12 @@
       }
       return response.json();
     })
-    .then(function(ad) {
-      if (!ad) return;
+    .then(function(payload) {
+      if (!payload) return;
+
+      // The adserve API wraps responses in { success, data }. Unwrap if present.
+      var ad = payload && payload.data ? payload.data : payload;
+      if (!ad || !ad.format) return;
 
       // Render the ad based on format
       renderAd(container, ad);
