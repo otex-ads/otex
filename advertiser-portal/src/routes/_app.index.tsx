@@ -1,6 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { motion } from "framer-motion";
-import { MousePointerClick, Eye, TrendingUp, DollarSign, Plus, ArrowUpRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  MousePointerClick,
+  Eye,
+  TrendingUp,
+  DollarSign,
+  Plus,
+  ArrowUpRight,
+  Wallet as WalletIcon,
+} from "lucide-react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -13,6 +22,7 @@ import {
 import { SurfaceCard, SectionLabel } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
 import { useStore } from "@/lib/store";
+import { api } from "@/lib/api";
 import { KES, Num } from "@/lib/format";
 
 export const Route = createFileRoute("/_app/")({
@@ -51,6 +61,13 @@ function StatCard({
 function Dashboard() {
   const campaigns = useStore((s) => s.campaigns) || [];
   const stats = useStore((s) => s.stats) || [];
+
+  const wallet = useQuery<{ balance: number }>({
+    queryKey: ["wallet"],
+    queryFn: () => api.getWallet(),
+    retry: false,
+  });
+  const balance = wallet.data?.balance ?? 0;
 
   const totals = stats.reduce(
     (acc, s) => {
@@ -103,16 +120,31 @@ function Dashboard() {
               time.
             </p>
           </div>
-          <Link
-            to="/campaigns/new"
-            className="inline-flex items-center gap-2 rounded-full bg-white/95 px-5 py-2.5 text-sm font-medium text-anchor hover:bg-white"
-          >
-            <Plus className="size-4" /> New campaign
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to="/campaigns/new"
+              className="inline-flex items-center gap-2 rounded-full bg-white/95 px-5 py-2.5 text-sm font-medium text-anchor hover:bg-white"
+            >
+              <Plus className="size-4" /> New campaign
+            </Link>
+            <Link
+              to="/wallet"
+              className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-5 py-2.5 text-sm font-medium text-anchor-foreground hover:bg-white/15"
+            >
+              <WalletIcon className="size-4" /> Top up wallet
+            </Link>
+          </div>
         </div>
       </motion.section>
 
-      <div className="grid gap-4 lg:grid-cols-4">
+      <div className="grid gap-4 lg:grid-cols-5">
+        <StatCard
+          delay={0.02}
+          label="Wallet balance"
+          value={KES(balance, { compact: true })}
+          sub={wallet.isLoading ? "Loading…" : "Available to spend"}
+          icon={WalletIcon}
+        />
         <StatCard
           delay={0.04}
           label="Impressions"

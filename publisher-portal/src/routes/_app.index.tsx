@@ -173,8 +173,32 @@ function Dashboard() {
           delay={0.12}
           label="This month"
           value={USD(thisMonth, { compact: true })}
-          sub={`Available: ${USD(balance.data?.available ?? 0, { compact: true })}`}
+          sub="Earnings so far"
+          icon={TrendingUp}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <StatCard
+          delay={0.14}
+          label="Available to withdraw"
+          value={USD(balance.data?.available ?? 0, { compact: true })}
+          sub={balance.isLoading ? "Loading…" : "Ready for payout"}
           icon={WalletIcon}
+        />
+        <StatCard
+          delay={0.16}
+          label="Pending payouts"
+          value={USD(balance.data?.pending ?? 0, { compact: true })}
+          sub="Being processed"
+          icon={TrendingUp}
+        />
+        <StatCard
+          delay={0.18}
+          label="Total paid out"
+          value={USD(balance.data?.totalPaid ?? 0, { compact: true })}
+          sub="Lifetime withdrawals"
+          icon={DollarSign}
         />
       </div>
 
