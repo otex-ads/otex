@@ -22,7 +22,14 @@ const SIZES: { value: AdSize; label: string }[] = [
   { value: "970x250", label: "Billboard 970×250" },
   { value: "320x50", label: "Mobile 320×50" },
 ];
-const FORMATS: AdFormat[] = ["display", "video", "native"];
+const FORMATS: { value: AdFormat; label: string }[] = [
+  { value: "banner", label: "Banner" },
+  { value: "native", label: "Native" },
+  { value: "push", label: "Push" },
+  { value: "popunder", label: "Popunder" },
+  { value: "interstitial", label: "Interstitial" },
+  { value: "in_page_push", label: "In-Page Push" },
+];
 
 interface ZoneForm {
   name: string;
@@ -228,7 +235,7 @@ function ZoneFormModal({
     name: zone?.name ?? "",
     siteId: zone?.siteId ?? sites[0]?.id ?? "",
     size: zone?.size ?? "300x250",
-    format: zone?.format ?? "display",
+    format: zone?.format ?? "banner",
   });
 
   const submit = () => {
@@ -283,8 +290,8 @@ function ZoneFormModal({
               onChange={(e) => setForm({ ...form, format: e.target.value as AdFormat })}
             >
               {FORMATS.map((f) => (
-                <option key={f} value={f} className="capitalize">
-                  {f}
+                <option key={f.value} value={f.value}>
+                  {f.label}
                 </option>
               ))}
             </select>

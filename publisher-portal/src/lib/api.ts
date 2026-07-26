@@ -108,7 +108,13 @@ export interface Site {
 
 export type ZoneStatus = "active" | "paused";
 export type AdSize = "728x90" | "300x250" | "160x600" | "970x250" | "320x50";
-export type AdFormat = "display" | "video" | "native";
+export type AdFormat =
+  | "banner"
+  | "native"
+  | "push"
+  | "popunder"
+  | "interstitial"
+  | "in_page_push";
 export interface Zone {
   id: string;
   name: string;
