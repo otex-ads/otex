@@ -43,12 +43,7 @@ function LoginPage() {
 
   return (
     <div className="grid min-h-screen place-items-center bg-background p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-        className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-xl"
-      >
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-xl">
         <div className="mb-6 flex items-center gap-2.5">
           <img src="/logo.png" alt="OtexAds" className="size-10 object-contain" />
           <div className="leading-tight">
@@ -101,7 +96,12 @@ function LoginPage() {
             </Link>
           </p>
         </form>
-      </motion.div>
+        <div className="mt-6 flex items-center justify-center gap-2 border-t border-border pt-4">
+          <img src="/sio.png" alt="Siohioma" className="h-5 w-auto object-contain" />
+          <span className="text-xs text-muted-foreground">Powered by</span>
+          <span className="text-xs font-medium text-foreground">Siohioma</span>
+        </div>
+      </div>
     </div>
   );
 }
