@@ -136,6 +136,12 @@ func (h *AdserveHandler) ServeAd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The ad tag (tag.js) only sends the zone ID. A zone has a fixed ad
+	// format, so fall back to the zone's configured format for matching.
+	if format == "" {
+		format = zoneMeta["format"]
+	}
+
 	// Get campaign candidates sorted by eCPM
 	candidates, err := h.redis.GetCampaignCandidates(ctx, zoneID)
 	if err != nil {

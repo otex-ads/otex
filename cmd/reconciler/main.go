@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"adnet/internal/store/postgres"
@@ -105,7 +106,157 @@ func (r *Reconciler) ReconcileAll(ctx context.Context) error {
 		}
 	}
 
+	// Sync serving metadata (zones, campaign creatives, and candidates) so
+	// that zones/campaigns created via the portals become servable.
+	if err := r.reconcileServingMetadata(ctx, campaigns); err != nil {
+		log.Printf("Error reconciling serving metadata: %v", err)
+	}
+
 	return nil
+}
+
+// zoneRow holds the zone fields needed for ad serving.
+type zoneRow struct {
+	ID              string
+	SiteID          string
+	Name            string
+	Format          string
+	FloorPriceCents int
+	Status          string
+}
+
+// campaignCreative holds a campaign joined with its best approved creative.
+type campaignCreative struct {
+	CampaignID string
+	BidCents   int
+	Format     string
+	CreativeID string
+	Title      string
+	Body       string
+	IconURL    string
+	ImageURL   string
+	ClickURL   string
+	Status     string
+}
+
+// reconcileServingMetadata pushes zone metadata, campaign creative metadata,
+// and per-zone candidate lists into Redis so the adserve service can match
+// ads to zones by format.
+func (r *Reconciler) reconcileServingMetadata(ctx context.Context, campaigns []*postgres.Campaign) error {
+	zones, err := r.getActiveZones(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Write zone metadata.
+	for _, z := range zones {
+		meta := map[string]string{
+			"site_id":           z.SiteID,
+			"name":              z.Name,
+			"format":            z.Format,
+			"floor_price_cents": strconv.Itoa(z.FloorPriceCents),
+			"status":            z.Status,
+		}
+		if err := r.redis.SetZoneMeta(ctx, z.ID, meta); err != nil {
+			log.Printf("Error setting zone meta %s: %v", z.ID, err)
+		}
+	}
+
+	// Build campaign creative metadata for active campaigns that have an
+	// approved creative, grouped by format for candidate matching.
+	byFormat := make(map[string]map[string]float64)
+	for _, c := range campaigns {
+		if c.Status != "active" {
+			continue
+		}
+		cc, err := r.getApprovedCreative(ctx, c.ID.String())
+		if err != nil || cc == nil {
+			continue
+		}
+		cc.BidCents = c.BidAmountCents
+		cc.Status = c.Status
+
+		meta := map[string]string{
+			"bid_cents":       strconv.Itoa(cc.BidCents),
+			"bid":             strconv.FormatFloat(float64(cc.BidCents)/100.0, 'f', 2, 64),
+			"format":          cc.Format,
+			"creative_id":     cc.CreativeID,
+			"title":           cc.Title,
+			"body":            cc.Body,
+			"icon_url":        cc.IconURL,
+			"image_url":       cc.ImageURL,
+			"click_url":       cc.ClickURL,
+			"status":          "active",
+			"creative_status": "approved",
+		}
+		if err := r.redis.SetCampaignMeta(ctx, cc.CampaignID, meta); err != nil {
+			log.Printf("Error setting campaign meta %s: %v", cc.CampaignID, err)
+			continue
+		}
+
+		if byFormat[cc.Format] == nil {
+			byFormat[cc.Format] = make(map[string]float64)
+		}
+		// Rank candidates by bid (eCPM proxy).
+		byFormat[cc.Format][cc.CampaignID] = float64(cc.BidCents)
+	}
+
+	// For each zone, set the candidate campaigns whose format matches.
+	for _, z := range zones {
+		candidates := byFormat[z.Format]
+		if len(candidates) == 0 {
+			continue
+		}
+		if err := r.redis.SetCampaignCandidates(ctx, z.ID, candidates); err != nil {
+			log.Printf("Error setting candidates for zone %s: %v", z.ID, err)
+		}
+	}
+
+	return nil
+}
+
+func (r *Reconciler) getActiveZones(ctx context.Context) ([]*zoneRow, error) {
+	const query = `
+		SELECT id, site_id, name, format, floor_price_cents, status
+		FROM zones
+		WHERE status = 'active'
+	`
+	rows, err := r.db.Pool().Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var zones []*zoneRow
+	for rows.Next() {
+		var z zoneRow
+		if err := rows.Scan(&z.ID, &z.SiteID, &z.Name, &z.Format, &z.FloorPriceCents, &z.Status); err != nil {
+			return nil, err
+		}
+		zones = append(zones, &z)
+	}
+	return zones, nil
+}
+
+func (r *Reconciler) getApprovedCreative(ctx context.Context, campaignID string) (*campaignCreative, error) {
+	const query = `
+		SELECT id, format,
+		       COALESCE(title, ''), COALESCE(body, ''),
+		       COALESCE(icon_url, ''), COALESCE(image_url, ''), click_url
+		FROM creatives
+		WHERE campaign_id = $1 AND status = 'approved'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+	var cc campaignCreative
+	cc.CampaignID = campaignID
+	err := r.db.Pool().QueryRow(ctx, query, campaignID).Scan(
+		&cc.CreativeID, &cc.Format, &cc.Title, &cc.Body, &cc.IconURL, &cc.ImageURL, &cc.ClickURL,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &cc, nil
 }
 
 func (r *Reconciler) getActiveCampaigns(ctx context.Context) ([]*postgres.Campaign, error) {
