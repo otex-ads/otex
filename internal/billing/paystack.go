@@ -227,9 +227,10 @@ func (p *PaystackClient) GetSecretKey() string {
 
 // CreateTransferRecipientRequest represents the request to create a transfer recipient
 type CreateTransferRecipientRequest struct {
-	Type     string `json:"type"`      // mobile_money, nuban, basa, etc.
+	Type     string `json:"type"` // mobile_money, nuban, basa, etc.
 	Name     string `json:"name"`
-	Phone    string `json:"phone,omitempty"`
+	// Paystack requires the mobile-money/bank number in the account_number field.
+	Phone    string `json:"account_number,omitempty"`
 	Email    string `json:"email,omitempty"`
 	Currency string `json:"currency"`
 	BankCode string `json:"bank_code,omitempty"` // e.g. MPESA
