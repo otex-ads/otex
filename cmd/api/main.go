@@ -92,7 +92,10 @@ func main() {
 	protected.HandleFunc("/sites/{id}", zoneHandler.DeleteSite).Methods("DELETE", "OPTIONS")
 	protected.HandleFunc("/sites/{id}/zones", zoneHandler.CreateZone).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/zones", zoneHandler.ListZones).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/zones", zoneHandler.CreateZone).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/zones/{id}", zoneHandler.GetZone).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/zones/{id}", zoneHandler.UpdateZone).Methods("PUT", "PATCH", "OPTIONS")
+	protected.HandleFunc("/zones/{id}", zoneHandler.DeleteZone).Methods("DELETE", "OPTIONS")
 	protected.HandleFunc("/zones/{id}/stats", zoneHandler.GetZoneStats).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/zones/{id}/tag", zoneHandler.GetZoneTag).Methods("GET", "OPTIONS")
 

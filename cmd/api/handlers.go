@@ -513,10 +513,19 @@ type CreateSiteRequest struct {
 }
 
 type CreateZoneRequest struct {
-	SiteID         uuid.UUID `json:"site_id"`
-	Name           string    `json:"name"`
-	Format         string    `json:"format"`
+	SiteID          uuid.UUID `json:"siteId"`
+	Name            string    `json:"name"`
+	Format          string    `json:"format"`
+	Size            string    `json:"size"`
 	FloorPriceCents int       `json:"floor_price_cents"`
+}
+
+type UpdateZoneRequest struct {
+	Name            string `json:"name"`
+	Format          string `json:"format"`
+	Size            string `json:"size"`
+	Status          string `json:"status"`
+	FloorPriceCents int    `json:"floor_price_cents"`
 }
 
 func (h *ZoneHandler) CreateSite(w http.ResponseWriter, r *http.Request) {
@@ -693,10 +702,9 @@ func (h *ZoneHandler) ListZones(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ZoneHandler) CreateZone(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	siteID, err := uuid.Parse(vars["id"])
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "Invalid site ID")
+	accountID, ok := mw.AccountIDFromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
 
@@ -706,8 +714,35 @@ func (h *ZoneHandler) CreateZone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Site ID may come from the URL (/sites/{id}/zones) or the request body (/zones)
+	siteID := req.SiteID
+	if vars := mux.Vars(r); vars["id"] != "" {
+		if parsed, err := uuid.Parse(vars["id"]); err == nil {
+			siteID = parsed
+		}
+	}
+	if siteID == uuid.Nil {
+		httpx.Error(w, http.StatusBadRequest, "Site ID is required")
+		return
+	}
+
 	if req.Name == "" || req.Format == "" {
 		httpx.Error(w, http.StatusBadRequest, "Name and format are required")
+		return
+	}
+
+	// Verify the site belongs to the requesting publisher
+	site, err := h.db.GetSiteByID(r.Context(), siteID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if site == nil {
+		httpx.Error(w, http.StatusNotFound, "Site not found")
+		return
+	}
+	if site.PublisherID != accountID {
+		httpx.Error(w, http.StatusForbidden, "Access denied")
 		return
 	}
 
@@ -718,6 +753,115 @@ func (h *ZoneHandler) CreateZone(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpx.JSON(w, http.StatusCreated, zone)
+}
+
+func (h *ZoneHandler) UpdateZone(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := mw.AccountIDFromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	vars := mux.Vars(r)
+	zoneID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid zone ID")
+		return
+	}
+
+	existing, err := h.db.GetZoneByID(r.Context(), zoneID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if existing == nil {
+		httpx.Error(w, http.StatusNotFound, "Zone not found")
+		return
+	}
+
+	// Verify ownership via the parent site
+	site, err := h.db.GetSiteByID(r.Context(), existing.SiteID)
+	if err != nil || site == nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if site.PublisherID != accountID {
+		httpx.Error(w, http.StatusForbidden, "Access denied")
+		return
+	}
+
+	var req UpdateZoneRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	name := req.Name
+	if name == "" {
+		name = existing.Name
+	}
+	format := req.Format
+	if format == "" {
+		format = existing.Format
+	}
+	status := req.Status
+	if status == "" {
+		status = existing.Status
+	}
+	floor := req.FloorPriceCents
+	if floor == 0 {
+		floor = existing.FloorPriceCents
+	}
+
+	zone, err := h.db.UpdateZone(r.Context(), zoneID, name, format, floor, status)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to update zone")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, zone)
+}
+
+func (h *ZoneHandler) DeleteZone(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := mw.AccountIDFromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	vars := mux.Vars(r)
+	zoneID, err := uuid.Parse(vars["id"])
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid zone ID")
+		return
+	}
+
+	existing, err := h.db.GetZoneByID(r.Context(), zoneID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if existing == nil {
+		httpx.Error(w, http.StatusNotFound, "Zone not found")
+		return
+	}
+
+	site, err := h.db.GetSiteByID(r.Context(), existing.SiteID)
+	if err != nil || site == nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if site.PublisherID != accountID {
+		httpx.Error(w, http.StatusForbidden, "Access denied")
+		return
+	}
+
+	if err := h.db.DeleteZone(r.Context(), zoneID); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to delete zone")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
 func (h *ZoneHandler) GetZone(w http.ResponseWriter, r *http.Request) {

@@ -257,6 +257,12 @@ func (db *DB) ListZonesByPublisher(ctx context.Context, publisherID uuid.UUID) (
 	return zones, nil
 }
 
+func (db *DB) DeleteZone(ctx context.Context, id uuid.UUID) error {
+	const query = `DELETE FROM zones WHERE id = $1`
+	_, err := db.pool.Exec(ctx, query, id)
+	return err
+}
+
 func (db *DB) UpdateZone(ctx context.Context, id uuid.UUID, name, format string, floorPriceCents int, status string) (*Zone, error) {
 	const query = `
 		UPDATE zones
