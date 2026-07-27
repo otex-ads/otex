@@ -150,5 +150,33 @@ services:
       - "3003:3003"
     restart: unless-stopped
 
+  email-renderer:
+    build:
+      context: ../email-renderer
+      dockerfile: Dockerfile
+    container_name: adnet-email-renderer
+    environment:
+      PORT: 3000
+      HOSTNAME: "0.0.0.0"
+    ports:
+      - "3002:3000"
+    restart: unless-stopped
+
+  emailer:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.emailer
+    container_name: adnet-emailer
+    environment:
+      EMAIL_RENDERER_URL: http://email-renderer:3000
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM_EMAIL: ${RESEND_FROM_EMAIL:-noreply@otexads.com}
+      PORT: 8085
+    ports:
+      - "8085:8085"
+    depends_on:
+      - email-renderer
+    restart: unless-stopped
+
 volumes:
   postgres_data:

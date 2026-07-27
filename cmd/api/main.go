@@ -9,6 +9,7 @@ import (
 
 	"adnet/internal/auth"
 	"adnet/internal/billing"
+	"adnet/internal/email"
 	"adnet/internal/mw"
 	"adnet/internal/store/postgres"
 	"adnet/internal/store/redis"
@@ -18,20 +19,22 @@ import (
 )
 
 type Config struct {
-	PostgresURL   string
-	RedisURL      string
-	JWTSecret     string
-	Port          string
-	PaystackKey   string
+	PostgresURL      string
+	RedisURL         string
+	JWTSecret        string
+	Port             string
+	PaystackKey      string
+	EmailRendererURL string
 }
 
 func main() {
 	config := Config{
-		PostgresURL: getEnv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/adnet?sslmode=disable"),
-		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379"),
-		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
-		Port:        getEnv("PORT", "8080"),
-		PaystackKey: getEnv("PAYSTACK_SECRET_KEY", ""),
+		PostgresURL:      getEnv("POSTGRES_URL", "postgres://postgres:postgres@localhost:5432/adnet?sslmode=disable"),
+		RedisURL:         getEnv("REDIS_URL", "redis://localhost:6379"),
+		JWTSecret:        getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
+		Port:             getEnv("PORT", "8080"),
+		PaystackKey:      getEnv("PAYSTACK_SECRET_KEY", ""),
+		EmailRendererURL: getEnv("EMAIL_RENDERER_URL", "http://email-renderer:3000"),
 	}
 
 	ctx := context.Background()
@@ -62,12 +65,15 @@ func main() {
 		paystackClient = billing.NewPaystackClient(config.PaystackKey)
 	}
 
+	// Initialize email renderer client
+	emailRenderer := email.NewRendererClient(config.EmailRendererURL)
+
 	r := mux.NewRouter()
 
 	api := r.PathPrefix("/api").Subrouter()
 	
 	// Auth routes
-	authHandler := NewAuthHandler(db, authService)
+	authHandler := NewAuthHandler(db, authService, emailRenderer)
 	api.HandleFunc("/auth/register", authHandler.Register).Methods("POST", "OPTIONS")
 	api.HandleFunc("/auth/login", authHandler.Login).Methods("POST", "OPTIONS")
 	api.HandleFunc("/auth/refresh", authHandler.Refresh).Methods("POST", "OPTIONS")
@@ -141,7 +147,7 @@ func main() {
 	protected.HandleFunc("/admin/financials/payouts/{id}/retry", financialHandler.RetryPayout).Methods("POST", "OPTIONS")
 
 	// Webhook route (unauthenticated — signature-verified)
-	webhookHandler := NewWebhookHandler(db, redisClient, paystackClient)
+	webhookHandler := NewWebhookHandler(db, redisClient, paystackClient, emailRenderer)
 	api.HandleFunc("/webhooks/paystack", webhookHandler.PaystackWebhook).Methods("POST")
 
 	// Marketplace routes (interconnection between advertisers and publishers)

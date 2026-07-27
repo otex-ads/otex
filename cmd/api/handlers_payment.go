@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha512"
@@ -11,8 +12,10 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"adnet/internal/billing"
+	"adnet/internal/email"
 	"adnet/internal/mw"
 	"adnet/internal/store/postgres"
 	"adnet/internal/store/redis"
@@ -28,10 +31,11 @@ type WebhookHandler struct {
 	db       *postgres.DB
 	redis    *redis.Client
 	paystack *billing.PaystackClient
+	emailer  *email.RendererClient
 }
 
-func NewWebhookHandler(db *postgres.DB, redisClient *redis.Client, paystack *billing.PaystackClient) *WebhookHandler {
-	return &WebhookHandler{db: db, redis: redisClient, paystack: paystack}
+func NewWebhookHandler(db *postgres.DB, redisClient *redis.Client, paystack *billing.PaystackClient, emailer *email.RendererClient) *WebhookHandler {
+	return &WebhookHandler{db: db, redis: redisClient, paystack: paystack, emailer: emailer}
 }
 
 func (h *WebhookHandler) PaystackWebhook(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +115,7 @@ func (h *WebhookHandler) PaystackWebhook(w http.ResponseWriter, r *http.Request)
 func (h *WebhookHandler) handleChargeSuccess(ctx context.Context, reference string, amount int64, eventID uuid.UUID) {
 	// Try to get existing transaction first
 	tx, err := h.db.GetTransactionByReference(ctx, reference)
-	
+
 	// If transaction doesn't exist, we need to extract account_id from the reference
 	// Reference format: adnet-topup-{account_id}-{timestamp}
 	var accountID uuid.UUID
@@ -151,6 +155,59 @@ func (h *WebhookHandler) handleChargeSuccess(ctx context.Context, reference stri
 
 	h.db.MarkPaystackEventProcessed(ctx, eventID)
 	log.Printf("Webhook charge.success: credited %d cents to account %s (ref: %s)", amount, accountID, reference)
+
+	// Send deposit confirmation email asynchronously
+	go func() {
+		emailCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Get account details
+		account, err := h.db.GetAccountByID(emailCtx, accountID)
+		if err != nil || account == nil {
+			log.Printf("Failed to get account for deposit email: %v", err)
+			return
+		}
+
+		// Format amount as KSh
+		amountKES := fmt.Sprintf("KSh %.2f", float64(amount)/100)
+
+		emailData := map[string]interface{}{
+			"name":   account.Email,
+			"amount": amountKES,
+		}
+
+		// Render email HTML
+		html, err := h.emailer.Render(emailCtx, email.TemplateDepositConfirmation, emailData)
+		if err != nil {
+			log.Printf("Failed to render deposit confirmation email: %v", err)
+			return
+		}
+
+		// Send via emailer service
+		emailReq := email.SendRequest{
+			Template: email.TemplateDepositConfirmation,
+			To:       account.Email,
+			Subject:  "Deposit Confirmed",
+			Data:     emailData,
+		}
+
+		// POST to emailer service
+		reqBody, _ := json.Marshal(emailReq)
+		httpReq, _ := http.NewRequest("POST", "http://emailer:8085/send", bytes.NewReader(reqBody))
+		httpReq.Header.Set("Content-Type", "application/json")
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			log.Printf("Failed to send deposit confirmation email: %v", err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("Emailer returned status %d for deposit email", resp.StatusCode)
+		} else {
+			log.Printf("Deposit confirmation email sent to %s", account.Email)
+		}
+	}()
 }
 
 func (h *WebhookHandler) handleTransferSuccess(ctx context.Context, reference string, eventID uuid.UUID) {
@@ -163,6 +220,59 @@ func (h *WebhookHandler) handleTransferSuccess(ctx context.Context, reference st
 	h.db.UpdatePayoutRequestStatus(ctx, payout.ID, "paid", nil)
 	h.db.MarkPaystackEventProcessed(ctx, eventID)
 	log.Printf("Webhook transfer.success: payout %s marked as paid (ref: %s)", payout.ID, reference)
+
+	// Send payout sent email asynchronously
+	go func() {
+		emailCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Get publisher account details
+		account, err := h.db.GetAccountByID(emailCtx, payout.PublisherID)
+		if err != nil || account == nil {
+			log.Printf("Failed to get account for payout email: %v", err)
+			return
+		}
+
+		// Format amount as KSh
+		amountKES := fmt.Sprintf("KSh %.2f", float64(payout.AmountCents)/100)
+
+		emailData := map[string]interface{}{
+			"name":   account.Email,
+			"amount": amountKES,
+		}
+
+		// Render email HTML
+		html, err := h.emailer.Render(emailCtx, email.TemplatePayoutSent, emailData)
+		if err != nil {
+			log.Printf("Failed to render payout sent email: %v", err)
+			return
+		}
+
+		// Send via emailer service
+		emailReq := email.SendRequest{
+			Template: email.TemplatePayoutSent,
+			To:       account.Email,
+			Subject:  "Payout Sent",
+			Data:     emailData,
+		}
+
+		// POST to emailer service
+		reqBody, _ := json.Marshal(emailReq)
+		httpReq, _ := http.NewRequest("POST", "http://emailer:8085/send", bytes.NewReader(reqBody))
+		httpReq.Header.Set("Content-Type", "application/json")
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			log.Printf("Failed to send payout sent email: %v", err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("Emailer returned status %d for payout email", resp.StatusCode)
+		} else {
+			log.Printf("Payout sent email sent to %s", account.Email)
+		}
+	}()
 }
 
 func (h *WebhookHandler) handleTransferFailed(ctx context.Context, reference, eventType string, eventID uuid.UUID) {

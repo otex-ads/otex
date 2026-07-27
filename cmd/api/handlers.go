@@ -1,13 +1,17 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
 	"adnet/internal/auth"
 	"adnet/internal/billing"
+	"adnet/internal/email"
 	"adnet/internal/mw"
 	"adnet/internal/store/postgres"
 	"adnet/internal/store/redis"
@@ -20,10 +24,11 @@ import (
 type AuthHandler struct {
 	db          *postgres.DB
 	authService *auth.AuthService
+	emailer     *email.RendererClient
 }
 
-func NewAuthHandler(db *postgres.DB, authService *auth.AuthService) *AuthHandler {
-	return &AuthHandler{db: db, authService: authService}
+func NewAuthHandler(db *postgres.DB, authService *auth.AuthService, emailer *email.RendererClient) *AuthHandler {
+	return &AuthHandler{db: db, authService: authService, emailer: emailer}
 }
 
 type RegisterRequest struct {
@@ -103,6 +108,57 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "Failed to generate refresh token")
 		return
 	}
+
+	// Send welcome email asynchronously
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		name := req.Email
+		if req.CompanyName != "" {
+			name = req.CompanyName
+		}
+
+		emailData := map[string]interface{}{
+			"name":        name,
+			"email":       req.Email,
+			"role":        req.AccountType,
+			"dashboardUrl": fmt.Sprintf("https://%s.otexads.com", req.AccountType),
+			"verifyUrl":   fmt.Sprintf("https://%s.otexads.com/verify?token=%s", req.AccountType, accessToken),
+		}
+
+		// Render email HTML
+		html, err := h.emailer.Render(ctx, email.TemplateWelcome, emailData)
+		if err != nil {
+			log.Printf("Failed to render welcome email: %v", err)
+			return
+		}
+
+		// Send via emailer service
+		emailReq := email.SendRequest{
+			Template: email.TemplateWelcome,
+			To:       req.Email,
+			Subject:  "Welcome to OtexAds",
+			Data:     emailData,
+		}
+
+		// POST to emailer service
+		reqBody, _ := json.Marshal(emailReq)
+		httpReq, _ := http.NewRequest("POST", "http://emailer:8085/send", bytes.NewReader(reqBody))
+		httpReq.Header.Set("Content-Type", "application/json")
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			log.Printf("Failed to send welcome email: %v", err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("Emailer returned status %d", resp.StatusCode)
+		} else {
+			log.Printf("Welcome email sent to %s", req.Email)
+		}
+	}()
 
 	httpx.JSON(w, http.StatusCreated, AuthResponse{
 		AccessToken:  accessToken,

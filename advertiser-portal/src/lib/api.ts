@@ -117,21 +117,58 @@ class ApiClient {
       headers["Authorization"] = `Bearer ${this.token}`;
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers,
+      });
+    } catch (networkErr) {
+      // Network failure, CORS block, DNS, or server unreachable.
+      console.error(`[api] Network error calling ${options?.method || "GET"} ${url}:`, networkErr);
+      throw new Error(
+        `Network error reaching ${url}. Check that the API is up and CORS/HTTPS are correct.`,
+      );
+    }
+
+    // Read the body once as text so we can surface the real error message.
+    const raw = await response.text();
+    let parsed: unknown = null;
+    if (raw) {
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        parsed = raw; // Non-JSON body (e.g. HTML error page)
+      }
+    }
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
+      const backendMsg =
+        parsed && typeof parsed === "object" && "error" in parsed
+          ? (parsed as { error: string }).error
+          : typeof parsed === "string" && parsed
+            ? parsed
+            : response.statusText;
+      console.error(
+        `[api] ${options?.method || "GET"} ${url} failed: ${response.status} — ${backendMsg}`,
+      );
+
+      // Expired/invalid session: clear token and send user to login.
+      if (response.status === 401 && typeof window !== "undefined") {
+        this.clearToken();
+        if (!window.location.pathname.startsWith("/auth")) {
+          window.location.href = "/auth/login";
+        }
+      }
+
+      throw new Error(backendMsg || `Request failed with status ${response.status}`);
     }
 
-    const json = await response.json();
     // Unwrap the backend's { success: true, data: ... } envelope
-    if (json && typeof json === "object" && "success" in json && "data" in json) {
-      return (json as { success: boolean; data: T }).data;
+    if (parsed && typeof parsed === "object" && "success" in parsed && "data" in parsed) {
+      return (parsed as { success: boolean; data: T }).data;
     }
-    return json as T;
+    return parsed as T;
   }
 
   async login(data: LoginRequest): Promise<AuthResponse> {
@@ -165,6 +202,7 @@ class ApiClient {
         timezone: string;
         starts_at?: string;
         ends_at?: string;
+        created_at: string;
       }>
     >("/api/v1/campaigns");
     // Transform backend format to frontend format
