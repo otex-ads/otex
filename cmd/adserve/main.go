@@ -166,7 +166,7 @@ func getOSFromUA(userAgentStr string) string {
 
 func getBrowserFromUA(userAgentStr string) string {
 	ua := user_agent.New(userAgentStr)
-	browser := ua.Browser()
+	browser, _ := ua.Browser()
 	browser = strings.ToLower(browser)
 	if strings.Contains(browser, "chrome") {
 		return "chrome"
