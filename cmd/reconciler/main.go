@@ -138,12 +138,18 @@ func (r *Reconciler) ReconcileAll(ctx context.Context) error {
 
 // zoneRow holds the zone fields needed for ad serving.
 type zoneRow struct {
-	ID              string
-	SiteID          string
-	Name            string
-	Format          string
-	FloorPriceCents int
-	Status          string
+	ID               string
+	SiteID           string
+	Name             string
+	Format           string
+	FloorPriceCents  int
+	Status           string
+	Countries        string
+	DeviceTypes      string
+	OS               string
+	Browsers         string
+	Carriers         string
+	ConnectionTypes  string
 }
 
 // campaignCreative holds a campaign joined with its best approved creative.
@@ -177,6 +183,12 @@ func (r *Reconciler) reconcileServingMetadata(ctx context.Context, campaigns []*
 			"format":            z.Format,
 			"floor_price_cents": strconv.Itoa(z.FloorPriceCents),
 			"status":            z.Status,
+			"countries":         z.Countries,
+			"device_types":      z.DeviceTypes,
+			"os":                z.OS,
+			"browsers":          z.Browsers,
+			"carriers":          z.Carriers,
+			"connection_types":  z.ConnectionTypes,
 		}
 		if err := r.redis.SetZoneMeta(ctx, z.ID, meta); err != nil {
 			log.Printf("Error setting zone meta %s: %v", z.ID, err)
@@ -238,7 +250,13 @@ func (r *Reconciler) reconcileServingMetadata(ctx context.Context, campaigns []*
 
 func (r *Reconciler) getActiveZones(ctx context.Context) ([]*zoneRow, error) {
 	const query = `
-		SELECT id, site_id, name, format, floor_price_cents, status
+		SELECT id, site_id, name, format, floor_price_cents, status,
+		       array_to_string(countries, ',') as countries,
+		       array_to_string(device_types, ',') as device_types,
+		       array_to_string(os, ',') as os,
+		       array_to_string(browsers, ',') as browsers,
+		       array_to_string(carriers, ',') as carriers,
+		       array_to_string(connection_types, ',') as connection_types
 		FROM zones
 		WHERE status = 'active'
 	`
@@ -251,7 +269,8 @@ func (r *Reconciler) getActiveZones(ctx context.Context) ([]*zoneRow, error) {
 	var zones []*zoneRow
 	for rows.Next() {
 		var z zoneRow
-		if err := rows.Scan(&z.ID, &z.SiteID, &z.Name, &z.Format, &z.FloorPriceCents, &z.Status); err != nil {
+		if err := rows.Scan(&z.ID, &z.SiteID, &z.Name, &z.Format, &z.FloorPriceCents, &z.Status,
+			&z.Countries, &z.DeviceTypes, &z.OS, &z.Browsers, &z.Carriers, &z.ConnectionTypes); err != nil {
 			return nil, err
 		}
 		zones = append(zones, &z)

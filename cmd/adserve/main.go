@@ -125,20 +125,73 @@ func getCountryFromIP(ipStr string, geoipDB *geoip2.Reader) string {
 
 func getDeviceTypeFromUA(userAgentStr string) string {
 	ua := user_agent.New(userAgentStr)
-	
+
 	// Check for mobile
 	if ua.Mobile() {
 		return "mobile"
 	}
-	
+
 	// Check for tablet via platform (iPad, Android tablet, etc.)
 	platform := ua.Platform()
 	if platform == "iPad" || (platform == "Android" && ua.OS() == "Android" && !ua.Mobile()) {
 		return "tablet"
 	}
-	
+
 	// Default to desktop
 	return "desktop"
+}
+
+func getOSFromUA(userAgentStr string) string {
+	ua := user_agent.New(userAgentStr)
+	os := ua.OS()
+	// Normalize OS names
+	os = strings.ToLower(os)
+	if strings.Contains(os, "android") {
+		return "android"
+	}
+	if strings.Contains(os, "ios") || strings.Contains(os, "iphone") || strings.Contains(os, "ipad") {
+		return "ios"
+	}
+	if strings.Contains(os, "windows") {
+		return "windows"
+	}
+	if strings.Contains(os, "mac") {
+		return "macos"
+	}
+	if strings.Contains(os, "linux") {
+		return "linux"
+	}
+	return os
+}
+
+func getBrowserFromUA(userAgentStr string) string {
+	ua := user_agent.New(userAgentStr)
+	browser := strings.ToLower(ua.Browser())
+	if strings.Contains(browser, "chrome") {
+		return "chrome"
+	}
+	if strings.Contains(browser, "firefox") {
+		return "firefox"
+	}
+	if strings.Contains(browser, "safari") {
+		return "safari"
+	}
+	if strings.Contains(browser, "edge") {
+		return "edge"
+	}
+	if strings.Contains(browser, "opera") {
+		return "opera"
+	}
+	return browser
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if strings.EqualFold(s, item) {
+			return true
+		}
+	}
+	return false
 }
 
 type AdserveHandler struct {
@@ -201,6 +254,42 @@ func (h *AdserveHandler) ServeAd(w http.ResponseWriter, r *http.Request) {
 	// format, so fall back to the zone's configured format for matching.
 	if format == "" {
 		format = zoneMeta["format"]
+	}
+
+	// Get visitor attributes for targeting
+	country := getCountryFromIP(ip, h.geoipDB)
+	deviceType := getDeviceTypeFromUA(r.UserAgent())
+	os := getOSFromUA(r.UserAgent())
+	browser := getBrowserFromUA(r.UserAgent())
+
+	// Check zone targeting - if zone has targeting rules, visitor must match
+	if zoneCountries := zoneMeta["countries"]; zoneCountries != "" {
+		countries := strings.Split(zoneCountries, ",")
+		if !contains(countries, country) {
+			httpx.Error(w, http.StatusNoContent, "No ads available for your location")
+			return
+		}
+	}
+	if zoneDeviceTypes := zoneMeta["device_types"]; zoneDeviceTypes != "" {
+		deviceTypes := strings.Split(zoneDeviceTypes, ",")
+		if !contains(deviceTypes, deviceType) {
+			httpx.Error(w, http.StatusNoContent, "No ads available for your device")
+			return
+		}
+	}
+	if zoneOS := zoneMeta["os"]; zoneOS != "" {
+		osList := strings.Split(zoneOS, ",")
+		if !contains(osList, os) {
+			httpx.Error(w, http.StatusNoContent, "No ads available for your OS")
+			return
+		}
+	}
+	if zoneBrowsers := zoneMeta["browsers"]; zoneBrowsers != "" {
+		browsers := strings.Split(zoneBrowsers, ",")
+		if !contains(browsers, browser) {
+			httpx.Error(w, http.StatusNoContent, "No ads available for your browser")
+			return
+		}
 	}
 
 	// Get campaign candidates sorted by eCPM
