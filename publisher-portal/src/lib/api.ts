@@ -234,7 +234,7 @@ export const api = {
       auth: false,
     }),
   requestPasswordReset: (data: { email: string }) =>
-    apiFetch<void>("/api/v1/auth/password-reset/request", {
+    apiFetch<void>("/api/v1/auth/password-reset", {
       method: "POST",
       body: JSON.stringify(data),
       auth: false,

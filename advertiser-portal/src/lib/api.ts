@@ -190,7 +190,7 @@ class ApiClient {
   }
 
   async requestPasswordReset(data: { email: string }): Promise<void> {
-    await this.request<void>("/api/v1/auth/password-reset/request", {
+    await this.request<void>("/api/v1/auth/password-reset", {
       method: "POST",
       body: JSON.stringify(data),
     });
