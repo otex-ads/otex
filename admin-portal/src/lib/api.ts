@@ -169,12 +169,12 @@ export const api = {
   // Auth
   login: (email: string, password: string) =>
     apiFetch<{ access_token: string; refresh_token: string; account_id: string; email: string; type: string }>(
-      "/api/auth/login",
+      "/api/v1/auth/login",
       { method: "POST", body: JSON.stringify({ email, password }), auth: false },
     ),
   register: (email: string, password: string, accountType: string, companyName?: string) =>
     apiFetch<{ access_token: string; refresh_token: string; account_id: string; email: string; type: string }>(
-      "/api/auth/register",
+      "/api/v1/auth/register",
       { method: "POST", body: JSON.stringify({ email, password, account_type: accountType, company_name: companyName }), auth: false },
     ),
 

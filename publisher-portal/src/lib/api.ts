@@ -200,7 +200,7 @@ export const api = {
       account_id: string;
       email: string;
       type: string;
-    }>("/api/auth/login", {
+    }>("/api/v1/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
       auth: false,
@@ -212,7 +212,7 @@ export const api = {
       account_id: string;
       email: string;
       type: string;
-    }>("/api/auth/register", {
+    }>("/api/v1/auth/register", {
       method: "POST",
       body: JSON.stringify({
         email,
