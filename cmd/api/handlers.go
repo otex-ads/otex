@@ -509,11 +509,13 @@ func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Validate the token and extract account info
-	accountID, email, accountType, err := h.authService.ValidateAccessToken(req.Token)
+	claims, err := h.authService.ValidateAccessToken(req.Token)
 	if err != nil {
 		httpx.Error(w, http.StatusUnauthorized, "Invalid or expired token")
 		return
 	}
+
+	accountID := claims.AccountID
 
 	// Hash the new password
 	hashedPassword, err := h.authService.HashPassword(req.NewPassword)
