@@ -51,6 +51,11 @@ function ZonesPage() {
     retry: false,
   });
   const sites = useQuery<Site[]>({ queryKey: ["sites"], queryFn: api.listSites, retry: false });
+  const targetingOptions = useQuery({
+    queryKey: ["targeting-options"],
+    queryFn: () => api.getTargetingOptions(),
+    retry: false,
+  });
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: ["zones"] });
 
@@ -318,7 +323,13 @@ function ZoneFormModal({
                 value={form.countries.join(", ")}
                 onChange={(e) => setForm({ ...form, countries: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
                 placeholder="KE, UG, ZA"
+                list="countries-list"
               />
+              <datalist id="countries-list">
+                {targetingOptions.data?.countries?.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Device types</label>
@@ -327,7 +338,13 @@ function ZoneFormModal({
                 value={form.deviceTypes.join(", ")}
                 onChange={(e) => setForm({ ...form, deviceTypes: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
                 placeholder="mobile, desktop, tablet"
+                list="device-types-list"
               />
+              <datalist id="device-types-list">
+                {targetingOptions.data?.device_types?.map((d) => (
+                  <option key={d} value={d} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Operating systems</label>
@@ -336,7 +353,13 @@ function ZoneFormModal({
                 value={form.os.join(", ")}
                 onChange={(e) => setForm({ ...form, os: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
                 placeholder="android, ios"
+                list="os-list"
               />
+              <datalist id="os-list">
+                {targetingOptions.data?.os?.map((o) => (
+                  <option key={o} value={o} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Browsers</label>
@@ -345,7 +368,13 @@ function ZoneFormModal({
                 value={form.browsers.join(", ")}
                 onChange={(e) => setForm({ ...form, browsers: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
                 placeholder="chrome, firefox, safari"
+                list="browsers-list"
               />
+              <datalist id="browsers-list">
+                {targetingOptions.data?.browsers?.map((b) => (
+                  <option key={b} value={b} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Carriers</label>
@@ -354,7 +383,13 @@ function ZoneFormModal({
                 value={form.carriers.join(", ")}
                 onChange={(e) => setForm({ ...form, carriers: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
                 placeholder="safaricom, airtel"
+                list="carriers-list"
               />
+              <datalist id="carriers-list">
+                {targetingOptions.data?.carriers?.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Connection types</label>
@@ -363,7 +398,13 @@ function ZoneFormModal({
                 value={form.connectionTypes.join(", ")}
                 onChange={(e) => setForm({ ...form, connectionTypes: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
                 placeholder="wifi, 4g, 3g"
+                list="connection-types-list"
               />
+              <datalist id="connection-types-list">
+                {targetingOptions.data?.connection_types?.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
             </div>
           </div>
         </FormField>

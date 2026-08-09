@@ -534,6 +534,62 @@ func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Reques
 	httpx.JSON(w, http.StatusOK, map[string]string{"message": "Password reset successfully"})
 }
 
+func (h *AuthHandler) GetTargetingOptions(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Get all unique targeting values from active campaigns
+	const query = `
+		SELECT 
+			array_agg(DISTINCT unnest(countries)) as countries,
+			array_agg(DISTINCT unnest(device_types)) as device_types,
+			array_agg(DISTINCT unnest(os)) as os,
+			array_agg(DISTINCT unnest(browsers)) as browsers,
+			array_agg(DISTINCT unnest(carriers)) as carriers,
+			array_agg(DISTINCT unnest(connection_types)) as connection_types
+		FROM targeting_rules tr
+		JOIN campaigns c ON tr.campaign_id = c.id
+		WHERE c.status = 'active'
+	`
+
+	var countries, deviceTypes, os, browsers, carriers, connectionTypes []string
+	err := h.db.Pool().QueryRow(ctx, query).Scan(
+		&countries,
+		&deviceTypes,
+		&os,
+		&browsers,
+		&carriers,
+		&connectionTypes,
+	)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to fetch targeting options")
+		return
+	}
+
+	// Filter out null values and deduplicate
+	filterUnique := func(arr []string) []string {
+		seen := make(map[string]bool)
+		result := []string{}
+		for _, v := range arr {
+			if v != "" && !seen[v] {
+				seen[v] = true
+				result = append(result, v)
+			}
+		}
+		return result
+	}
+
+	options := map[string]interface{}{
+		"countries":       filterUnique(countries),
+		"device_types":    filterUnique(deviceTypes),
+		"os":              filterUnique(os),
+		"browsers":        filterUnique(browsers),
+		"carriers":        filterUnique(carriers),
+		"connection_types": filterUnique(connectionTypes),
+	}
+
+	httpx.JSON(w, http.StatusOK, options)
+}
+
 type CampaignHandler struct {
 	db    *postgres.DB
 	redis *redis.Client

@@ -246,6 +246,16 @@ export const api = {
       auth: false,
     }),
 
+  getTargetingOptions: () =>
+    apiFetch<{
+      countries: string[];
+      device_types: string[];
+      os: string[];
+      browsers: string[];
+      carriers: string[];
+      connection_types: string[];
+    }>("/api/v1/targeting-options", { auth: false }),
+
   // Sites
   listSites: () => apiFetch<Site[]>("/api/v1/sites"),
   createSite: (input: Omit<Site, "id" | "revenue" | "impressions" | "status">) =>
