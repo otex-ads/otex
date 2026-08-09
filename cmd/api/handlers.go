@@ -128,7 +128,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Render email HTML
-		html, err := h.emailer.Render(ctx, email.TemplateWelcome, emailData)
+		_, err := h.emailer.Render(ctx, email.TemplateWelcome, emailData)
 		if err != nil {
 			log.Printf("Failed to render welcome email: %v", err)
 			return

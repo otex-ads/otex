@@ -11,8 +11,8 @@ build/
 # Compiled binaries
 *.exe
 bin/
-api
-api-linux
+/api
+/api-linux
 
 # Test credential files
 test_*.json

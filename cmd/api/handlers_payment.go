@@ -177,7 +177,7 @@ func (h *WebhookHandler) handleChargeSuccess(ctx context.Context, reference stri
 		}
 
 		// Render email HTML
-		html, err := h.emailer.Render(emailCtx, email.TemplateDepositConfirmation, emailData)
+		_, err := h.emailer.Render(emailCtx, email.TemplateDepositConfirmation, emailData)
 		if err != nil {
 			log.Printf("Failed to render deposit confirmation email: %v", err)
 			return
@@ -242,7 +242,7 @@ func (h *WebhookHandler) handleTransferSuccess(ctx context.Context, reference st
 		}
 
 		// Render email HTML
-		html, err := h.emailer.Render(emailCtx, email.TemplatePayoutSent, emailData)
+		_, err := h.emailer.Render(emailCtx, email.TemplatePayoutSent, emailData)
 		if err != nil {
 			log.Printf("Failed to render payout sent email: %v", err)
 			return
