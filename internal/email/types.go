@@ -13,6 +13,10 @@ const (
 	TemplateLowBalance           TemplateName = "low-balance"
 	TemplatePayoutSent           TemplateName = "payout-sent"
 	TemplatePayoutPendingApproval TemplateName = "payout-pending-approval"
+	TemplateAdminSignupNotification TemplateName = "admin-signup-notification"
+	TemplateSiteModerationDecision TemplateName = "site-moderation-decision"
+	TemplateCampaignModerationDecision TemplateName = "campaign-moderation-decision"
+	TemplateCreativeModerationDecision TemplateName = "creative-moderation-decision"
 )
 
 // SendRequest is the request to send an email

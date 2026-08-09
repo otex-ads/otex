@@ -115,3 +115,38 @@ func (db *DB) UpdateAccountStatus(ctx context.Context, id uuid.UUID, status stri
 	_, err := db.pool.Exec(ctx, query, id, status)
 	return err
 }
+
+func (db *DB) ListAccountsByType(ctx context.Context, accountType string) ([]*Account, error) {
+	const query = `
+		SELECT id, type, email, password_hash, company_name, status, created_at
+		FROM accounts
+		WHERE type = $1
+		ORDER BY created_at DESC
+	`
+
+	rows, err := db.pool.Query(ctx, query, accountType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []*Account
+	for rows.Next() {
+		var account Account
+		err := rows.Scan(
+			&account.ID,
+			&account.Type,
+			&account.Email,
+			&account.PasswordHash,
+			&account.CompanyName,
+			&account.Status,
+			&account.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, &account)
+	}
+
+	return accounts, nil
+}

@@ -78,6 +78,8 @@ func main() {
 	public.HandleFunc("/auth/register", authHandler.Register).Methods("POST", "OPTIONS")
 	public.HandleFunc("/auth/login", authHandler.Login).Methods("POST", "OPTIONS")
 	public.HandleFunc("/auth/refresh", authHandler.Refresh).Methods("POST", "OPTIONS")
+	public.HandleFunc("/auth/verify-email", authHandler.RequestVerifyEmail).Methods("POST", "OPTIONS")
+	public.HandleFunc("/auth/password-reset", authHandler.RequestPasswordReset).Methods("POST", "OPTIONS")
 
 	// Protected routes (auth required)
 	protected := api.PathPrefix("/v1").Subrouter()
@@ -120,7 +122,7 @@ func main() {
 	protected.HandleFunc("/wallet/transactions", walletHandler.GetTransactions).Methods("GET", "OPTIONS")
 
 	// Payout routes (publisher only)
-	payoutHandler := NewPayoutHandler(db, redisClient, paystackClient)
+	payoutHandler := NewPayoutHandler(db, redisClient, paystackClient, emailRenderer)
 	protected.HandleFunc("/payouts", payoutHandler.RequestPayout).Methods("POST", "OPTIONS")
 	protected.HandleFunc("/payouts", payoutHandler.ListPayouts).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/payouts/balance", payoutHandler.GetBalance).Methods("GET", "OPTIONS")
@@ -132,7 +134,7 @@ func main() {
 	protected.HandleFunc("/recipients/default", recipientHandler.GetDefault).Methods("GET", "OPTIONS")
 
 	// Admin routes (admin only)
-	adminHandler := NewAdminHandler(db, redisClient)
+	adminHandler := NewAdminHandler(db, redisClient, emailRenderer)
 	protected.HandleFunc("/admin/stats", adminHandler.GetStats).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/admin/users", adminHandler.ListUsers).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/admin/campaigns", adminHandler.ListCampaigns).Methods("GET", "OPTIONS")

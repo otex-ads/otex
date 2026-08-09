@@ -1,12 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
 
+	"adnet/internal/email"
 	"adnet/internal/store/postgres"
 	"adnet/internal/store/redis"
 )
@@ -64,6 +69,22 @@ func main() {
 			case <-ticker.C:
 				if err := reconciler.CheckDailyBudgetResets(ctx); err != nil {
 					log.Printf("Daily budget reset error: %v", err)
+				}
+			}
+		}
+	}()
+
+	// Run low balance check every 5 minutes
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := reconciler.CheckLowBalance(ctx); err != nil {
+					log.Printf("Low balance check error: %v", err)
 				}
 			}
 		}
@@ -380,4 +401,71 @@ func (r *Reconciler) CheckDailyBudgetResets(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (r *Reconciler) CheckLowBalance(ctx context.Context) error {
+	// Get all advertiser accounts
+	advertisers, err := r.db.ListAccountsByType(ctx, "advertiser")
+	if err != nil {
+		return err
+	}
+
+	// Low balance threshold: KSh 3,000 (300,000 cents)
+	const lowBalanceThreshold = 300000
+
+	for _, advertiser := range advertisers {
+		// Get wallet balance
+		wallet, err := r.db.GetWallet(ctx, advertiser.ID)
+		if err != nil || wallet == nil {
+			continue
+		}
+
+		// Check if balance is below threshold
+		if wallet.BalanceCents < lowBalanceThreshold {
+			// Send low balance email
+			go r.sendLowBalanceEmail(ctx, advertiser, wallet.BalanceCents, lowBalanceThreshold)
+		}
+	}
+
+	return nil
+}
+
+func (r *Reconciler) sendLowBalanceEmail(ctx context.Context, account *postgres.Account, balanceCents, thresholdCents int64) {
+	name := account.Email
+	if account.CompanyName != nil && *account.CompanyName != "" {
+		name = *account.CompanyName
+	}
+
+	amountKES := fmt.Sprintf("KSh %.2f", float64(balanceCents)/100)
+	thresholdKES := fmt.Sprintf("KSh %.2f", float64(thresholdCents)/100)
+
+	emailData := map[string]interface{}{
+		"name":      name,
+		"balance":   amountKES,
+		"threshold": thresholdKES,
+		"topupUrl":  "https://advertiser.otexads.com/wallet/topup",
+	}
+
+	emailReq := email.SendRequest{
+		Template: email.TemplateLowBalance,
+		To:       account.Email,
+		Subject:  "Low balance warning — add funds to keep ads running",
+		Data:     emailData,
+	}
+
+	reqBody, _ := json.Marshal(emailReq)
+	httpReq, _ := http.NewRequest("POST", "http://emailer:8085/send", bytes.NewReader(reqBody))
+	httpReq.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		log.Printf("Failed to send low balance email to %s: %v", account.Email, err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Emailer returned status %d for low balance email to %s", resp.StatusCode, account.Email)
+	} else {
+		log.Printf("Low balance email sent to %s", account.Email)
+	}
 }

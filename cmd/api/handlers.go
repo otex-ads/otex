@@ -43,6 +43,14 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type VerifyEmailRequest struct {
+	Email string `json:"email"`
+}
+
+type PasswordResetRequest struct {
+	Email string `json:"email"`
+}
+
 type AuthResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -160,6 +168,68 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// Send admin signup notification asynchronously
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Fetch all admin accounts
+		admins, err := h.db.ListAccountsByType(ctx, "admin")
+		if err != nil {
+			log.Printf("Failed to fetch admin accounts for signup notification: %v", err)
+			return
+		}
+
+		if len(admins) == 0 {
+			log.Printf("No admin accounts found, skipping signup notification")
+			return
+		}
+
+		// Prepare email data
+		userName := req.Email
+		if req.CompanyName != "" {
+			userName = req.CompanyName
+		}
+
+		emailData := map[string]interface{}{
+			"userName":     userName,
+			"userEmail":    req.Email,
+			"accountType":  req.AccountType,
+			"companyName":  req.CompanyName,
+			"accountId":    account.ID.String(),
+			"registeredAt": account.CreatedAt.Format("02 Jan 2006, 15:04 EAT"),
+			"reviewUrl":    "https://admin.otexads.com/users",
+		}
+
+		// Send to each admin
+		for _, admin := range admins {
+			emailData["adminName"] = admin.Email
+
+			emailReq := email.SendRequest{
+				Template: email.TemplateAdminSignupNotification,
+				To:       admin.Email,
+				Subject:  "New signup — action required",
+				Data:     emailData,
+			}
+
+			reqBody, _ := json.Marshal(emailReq)
+			httpReq, _ := http.NewRequest("POST", "http://emailer:8085/send", bytes.NewReader(reqBody))
+			httpReq.Header.Set("Content-Type", "application/json")
+			client := &http.Client{Timeout: 10 * time.Second}
+			resp, err := client.Do(httpReq)
+			if err != nil {
+				log.Printf("Failed to send admin signup notification to %s: %v", admin.Email, err)
+				continue
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				log.Printf("Emailer returned status %d for admin signup notification to %s", resp.StatusCode, admin.Email)
+			} else {
+				log.Printf("Admin signup notification sent to %s", admin.Email)
+			}
+		}
+	}()
+
 	httpx.JSON(w, http.StatusCreated, AuthResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -261,6 +331,159 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		Email:        account.Email,
 		Type:         account.Type,
 	})
+}
+
+func (h *AuthHandler) RequestVerifyEmail(w http.ResponseWriter, r *http.Request) {
+	var req VerifyEmailRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Email == "" {
+		httpx.Error(w, http.StatusBadRequest, "Email is required")
+		return
+	}
+
+	account, err := h.db.GetAccountByEmail(r.Context(), req.Email)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if account == nil {
+		httpx.Error(w, http.StatusNotFound, "Account not found")
+		return
+	}
+
+	// Generate a verification token
+	accessToken, err := h.authService.GenerateAccessToken(account.ID, account.Email, auth.AccountType(account.Type))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to generate verification token")
+		return
+	}
+
+	// Send verification email asynchronously
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		name := req.Email
+		if account.CompanyName != nil && *account.CompanyName != "" {
+			name = *account.CompanyName
+		}
+
+		emailData := map[string]interface{}{
+			"name":       name,
+			"verifyUrl":  fmt.Sprintf("https://%s.otexads.com/verify?token=%s", account.Type, accessToken),
+			"expiresIn":  "24 hours",
+		}
+
+		emailReq := email.SendRequest{
+			Template: email.TemplateVerifyEmail,
+			To:       req.Email,
+			Subject:  "Confirm your OtexAds email",
+			Data:     emailData,
+		}
+
+		reqBody, _ := json.Marshal(emailReq)
+		httpReq, _ := http.NewRequest("POST", "http://emailer:8085/send", bytes.NewReader(reqBody))
+		httpReq.Header.Set("Content-Type", "application/json")
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			log.Printf("Failed to send verification email to %s: %v", req.Email, err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("Emailer returned status %d for verification email to %s", resp.StatusCode, req.Email)
+		} else {
+			log.Printf("Verification email sent to %s", req.Email)
+		}
+	}()
+
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "Verification email sent"})
+}
+
+func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
+	var req PasswordResetRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Email == "" {
+		httpx.Error(w, http.StatusBadRequest, "Email is required")
+		return
+	}
+
+	account, err := h.db.GetAccountByEmail(r.Context(), req.Email)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Database error")
+		return
+	}
+	if account == nil {
+		// Don't reveal if email exists - return success anyway
+		httpx.JSON(w, http.StatusOK, map[string]string{"message": "If the email exists, a reset link has been sent"})
+		return
+	}
+
+	// Generate a password reset token (using access token for simplicity)
+	resetToken, err := h.authService.GenerateAccessToken(account.ID, account.Email, auth.AccountType(account.Type))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to generate reset token")
+		return
+	}
+
+	// Get client IP address
+	ipAddress := r.RemoteAddr
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		ipAddress = forwarded
+	}
+
+	// Send password reset email asynchronously
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		name := req.Email
+		if account.CompanyName != nil && *account.CompanyName != "" {
+			name = *account.CompanyName
+		}
+
+		emailData := map[string]interface{}{
+			"name":        name,
+			"resetUrl":    fmt.Sprintf("https://%s.otexads.com/reset?token=%s", account.Type, resetToken),
+			"expiresIn":  "1 hour",
+			"ipAddress":   ipAddress,
+			"requestedAt": time.Now().Format("02 Jan 2006, 15:04 EAT"),
+		}
+
+		emailReq := email.SendRequest{
+			Template: email.TemplatePasswordReset,
+			To:       req.Email,
+			Subject:  "Reset your OtexAds password",
+			Data:     emailData,
+		}
+
+		reqBody, _ := json.Marshal(emailReq)
+		httpReq, _ := http.NewRequest("POST", "http://emailer:8085/send", bytes.NewReader(reqBody))
+		httpReq.Header.Set("Content-Type", "application/json")
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			log.Printf("Failed to send password reset email to %s: %v", req.Email, err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("Emailer returned status %d for password reset email to %s", resp.StatusCode, req.Email)
+		} else {
+			log.Printf("Password reset email sent to %s", req.Email)
+		}
+	}()
+
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "If the email exists, a reset link has been sent"})
 }
 
 type CampaignHandler struct {
@@ -1278,10 +1501,11 @@ type PayoutHandler struct {
 	db       *postgres.DB
 	redis    *redis.Client
 	paystack *billing.PaystackClient
+	emailer  *email.RendererClient
 }
 
-func NewPayoutHandler(db *postgres.DB, redisClient *redis.Client, paystack *billing.PaystackClient) *PayoutHandler {
-	return &PayoutHandler{db: db, redis: redisClient, paystack: paystack}
+func NewPayoutHandler(db *postgres.DB, redisClient *redis.Client, paystack *billing.PaystackClient, emailer *email.RendererClient) *PayoutHandler {
+	return &PayoutHandler{db: db, redis: redisClient, paystack: paystack, emailer: emailer}
 }
 
 type PayoutRequestBody struct {
@@ -1334,6 +1558,92 @@ func (h *PayoutHandler) RequestPayout(w http.ResponseWriter, r *http.Request) {
 	// Record the payout transaction
 	ref := fmt.Sprintf("payout-%s", payout.ID.String())
 	h.db.CreateTransaction(r.Context(), accountID, "payout", -req.AmountCents, &ref)
+
+	// Send admin payout pending approval notification asynchronously
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Fetch all admin accounts
+		admins, err := h.db.ListAccountsByType(ctx, "admin")
+		if err != nil {
+			log.Printf("Failed to fetch admin accounts for payout notification: %v", err)
+			return
+		}
+
+		if len(admins) == 0 {
+			log.Printf("No admin accounts found, skipping payout notification")
+			return
+		}
+
+		// Get publisher account details
+		publisher, err := h.db.GetAccountByID(ctx, accountID)
+		if err != nil || publisher == nil {
+			log.Printf("Failed to get publisher account for payout notification: %v", err)
+			return
+		}
+
+		// Get default recipient for payout details
+		recipient, err := h.db.GetDefaultTransferRecipient(ctx, accountID)
+		if err != nil {
+			log.Printf("Failed to get recipient for payout notification: %v", err)
+			return
+		}
+
+		// Prepare email data
+		amountKES := fmt.Sprintf("KSh %.2f", float64(req.AmountCents)/100)
+		threshold := "KSh 3,000.00"
+		method := "M-Pesa"
+		destination := "+254 ••• ••••"
+		if recipient != nil {
+			if recipient.Type == "bank_account" {
+				method = "Bank Transfer"
+				destination = fmt.Sprintf("%s ••••", recipient.BankName)
+			} else if recipient.Phone != "" {
+				destination = recipient.Phone
+			}
+		}
+
+		emailData := map[string]interface{}{
+			"publisherName": publisher.Email,
+			"publisherEmail": publisher.Email,
+			"publisherId":   publisher.ID.String(),
+			"amount":        amountKES,
+			"threshold":     threshold,
+			"method":        method,
+			"destination":   destination,
+			"requestedAt":   payout.CreatedAt.Format("02 Jan 2006, 15:04 EAT"),
+			"reviewUrl":     "https://admin.otexads.com/payouts/pending",
+		}
+
+		// Send to each admin
+		for _, admin := range admins {
+			emailData["adminName"] = admin.Email
+
+			emailReq := email.SendRequest{
+				Template: email.TemplatePayoutPendingApproval,
+				To:       admin.Email,
+				Subject:  "Payout awaiting approval — action required",
+				Data:     emailData,
+			}
+
+			reqBody, _ := json.Marshal(emailReq)
+			httpReq, _ := http.NewRequest("POST", "http://emailer:8085/send", bytes.NewReader(reqBody))
+			httpReq.Header.Set("Content-Type", "application/json")
+			client := &http.Client{Timeout: 10 * time.Second}
+			resp, err := client.Do(httpReq)
+			if err != nil {
+				log.Printf("Failed to send payout notification to %s: %v", admin.Email, err)
+				continue
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				log.Printf("Emailer returned status %d for payout notification to %s", resp.StatusCode, admin.Email)
+			} else {
+				log.Printf("Payout notification sent to %s", admin.Email)
+			}
+		}
+	}()
 
 	// If Paystack is configured, initiate transfer
 	if h.paystack != nil {
@@ -1413,12 +1723,13 @@ func (h *PayoutHandler) GetBalance(w http.ResponseWriter, r *http.Request) {
 }
 
 type AdminHandler struct {
-	db    *postgres.DB
-	redis *redis.Client
+	db      *postgres.DB
+	redis   *redis.Client
+	emailer *email.RendererClient
 }
 
-func NewAdminHandler(db *postgres.DB, redisClient *redis.Client) *AdminHandler {
-	return &AdminHandler{db: db, redis: redisClient}
+func NewAdminHandler(db *postgres.DB, redisClient *redis.Client, emailer *email.RendererClient) *AdminHandler {
+	return &AdminHandler{db: db, redis: redisClient, emailer: emailer}
 }
 
 type ModerationRequest struct {
@@ -1521,6 +1832,58 @@ func (h *AdminHandler) ModerateCreative(w http.ResponseWriter, r *http.Request) 
 			// Log error but don't fail the request
 			// Redis update is best-effort
 		}
+
+		// Send moderation decision email asynchronously
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			// Get campaign to find advertiser
+			campaign, err := h.db.GetCampaignByID(ctx, creative.CampaignID)
+			if err != nil || campaign == nil {
+				log.Printf("Failed to get campaign for creative moderation email: %v", err)
+				return
+			}
+
+			// Get advertiser account
+			advertiser, err := h.db.GetAccountByID(ctx, campaign.AdvertiserID)
+			if err != nil || advertiser == nil {
+				log.Printf("Failed to get advertiser account for creative moderation email: %v", err)
+				return
+			}
+
+			emailData := map[string]interface{}{
+				"name":           advertiser.Email,
+				"creativeName":   creative.Name,
+				"creativeFormat": creative.Type,
+				"decision":       req.Action,
+				"reason":         req.Reason,
+				"reviewUrl":      "https://advertiser.otexads.com/creatives",
+			}
+
+			emailReq := email.SendRequest{
+				Template: email.TemplateCreativeModerationDecision,
+				To:       advertiser.Email,
+				Subject:  "Creative moderation decision",
+				Data:     emailData,
+			}
+
+			reqBody, _ := json.Marshal(emailReq)
+			httpReq, _ := http.NewRequest("POST", "http://emailer:8085/send", bytes.NewReader(reqBody))
+			httpReq.Header.Set("Content-Type", "application/json")
+			client := &http.Client{Timeout: 10 * time.Second}
+			resp, err := client.Do(httpReq)
+			if err != nil {
+				log.Printf("Failed to send creative moderation email to %s: %v", advertiser.Email, err)
+				return
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				log.Printf("Emailer returned status %d for creative moderation email to %s", resp.StatusCode, advertiser.Email)
+			} else {
+				log.Printf("Creative moderation email sent to %s", advertiser.Email)
+			}
+		}()
 	}
 
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": newStatus})
@@ -2269,6 +2632,61 @@ func (h *AdminHandler) ModerateSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Send moderation decision email asynchronously
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Get site details
+		const siteQuery = `SELECT id, publisher_id, name, domain FROM sites WHERE id = $1`
+		var siteID, publisherID uuid.UUID
+		var siteName, siteDomain string
+		err := h.db.Pool().QueryRow(ctx, siteQuery, req.SiteID).Scan(&siteID, &publisherID, &siteName, &siteDomain)
+		if err != nil {
+			log.Printf("Failed to get site details for moderation email: %v", err)
+			return
+		}
+
+		// Get publisher account
+		publisher, err := h.db.GetAccountByID(ctx, publisherID)
+		if err != nil || publisher == nil {
+			log.Printf("Failed to get publisher account for moderation email: %v", err)
+			return
+		}
+
+		emailData := map[string]interface{}{
+			"name":       publisher.Email,
+			"siteName":   siteName,
+			"siteDomain": siteDomain,
+			"decision":   req.Action,
+			"reason":     req.Reason,
+			"reviewUrl":  "https://publisher.otexads.com/sites",
+		}
+
+		emailReq := email.SendRequest{
+			Template: email.TemplateSiteModerationDecision,
+			To:       publisher.Email,
+			Subject:  "Site moderation decision",
+			Data:     emailData,
+		}
+
+		reqBody, _ := json.Marshal(emailReq)
+		httpReq, _ := http.NewRequest("POST", "http://emailer:8085/send", bytes.NewReader(reqBody))
+		httpReq.Header.Set("Content-Type", "application/json")
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			log.Printf("Failed to send site moderation email to %s: %v", publisher.Email, err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("Emailer returned status %d for site moderation email to %s", resp.StatusCode, publisher.Email)
+		} else {
+			log.Printf("Site moderation email sent to %s", publisher.Email)
+		}
+	}()
+
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": newStatus})
 }
 
@@ -2357,6 +2775,60 @@ func (h *AdminHandler) ModerateCampaign(w http.ResponseWriter, r *http.Request) 
 		// Log error but don't fail the request
 		// Redis update is best-effort
 	}
+
+	// Send moderation decision email asynchronously
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Get campaign details
+		const campaignQuery = `SELECT id, advertiser_id, name FROM campaigns WHERE id = $1`
+		var campaignID, advertiserID uuid.UUID
+		var campaignName string
+		err := h.db.Pool().QueryRow(ctx, campaignQuery, req.CampaignID).Scan(&campaignID, &advertiserID, &campaignName)
+		if err != nil {
+			log.Printf("Failed to get campaign details for moderation email: %v", err)
+			return
+		}
+
+		// Get advertiser account
+		advertiser, err := h.db.GetAccountByID(ctx, advertiserID)
+		if err != nil || advertiser == nil {
+			log.Printf("Failed to get advertiser account for moderation email: %v", err)
+			return
+		}
+
+		emailData := map[string]interface{}{
+			"name":         advertiser.Email,
+			"campaignName": campaignName,
+			"decision":     req.Action,
+			"reason":       req.Reason,
+			"reviewUrl":    "https://advertiser.otexads.com/campaigns",
+		}
+
+		emailReq := email.SendRequest{
+			Template: email.TemplateCampaignModerationDecision,
+			To:       advertiser.Email,
+			Subject:  "Campaign moderation decision",
+			Data:     emailData,
+		}
+
+		reqBody, _ := json.Marshal(emailReq)
+		httpReq, _ := http.NewRequest("POST", "http://emailer:8085/send", bytes.NewReader(reqBody))
+		httpReq.Header.Set("Content-Type", "application/json")
+		client := &http.Client{Timeout: 10 * time.Second}
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			log.Printf("Failed to send campaign moderation email to %s: %v", advertiser.Email, err)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			log.Printf("Emailer returned status %d for campaign moderation email to %s", resp.StatusCode, advertiser.Email)
+		} else {
+			log.Printf("Campaign moderation email sent to %s", advertiser.Email)
+		}
+	}()
 
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": newStatus})
 }

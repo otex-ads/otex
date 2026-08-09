@@ -16,3 +16,8 @@ UPDATE accounts
 SET status = $2
 WHERE id = $1
 RETURNING *;
+
+-- name: ListAccountsByType :many
+SELECT * FROM accounts
+WHERE type = $1
+ORDER BY created_at DESC;
