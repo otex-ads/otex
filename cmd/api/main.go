@@ -71,14 +71,15 @@ func main() {
 	r := mux.NewRouter()
 
 	api := r.PathPrefix("/api").Subrouter()
-	
-	// Auth routes
+
+	// Public routes (no auth required)
+	public := api.PathPrefix("/v1").Subrouter()
 	authHandler := NewAuthHandler(db, authService, emailRenderer)
-	api.HandleFunc("/auth/register", authHandler.Register).Methods("POST", "OPTIONS")
-	api.HandleFunc("/auth/login", authHandler.Login).Methods("POST", "OPTIONS")
-	api.HandleFunc("/auth/refresh", authHandler.Refresh).Methods("POST", "OPTIONS")
-	
-	// Protected routes
+	public.HandleFunc("/auth/register", authHandler.Register).Methods("POST", "OPTIONS")
+	public.HandleFunc("/auth/login", authHandler.Login).Methods("POST", "OPTIONS")
+	public.HandleFunc("/auth/refresh", authHandler.Refresh).Methods("POST", "OPTIONS")
+
+	// Protected routes (auth required)
 	protected := api.PathPrefix("/v1").Subrouter()
 	protected.Use(authMiddleware.RequireAuth)
 	
