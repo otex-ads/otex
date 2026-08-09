@@ -81,7 +81,7 @@ func main() {
 	r.HandleFunc("/click", adserve.HandleClick).Methods("GET")
 	r.HandleFunc("/conversion", adserve.HandleConversion).Methods("GET")
 	r.HandleFunc("/tag.js", adserve.ServeTagJS).Methods("GET")
-	r.HandleFunc("/healthz", adserve.Health).Methods("GET")
+	r.HandleFunc("/healthz", adserve.HealthCheck).Methods("GET")
 
 	srv := &http.Server{
 		Handler:      r,
@@ -131,8 +131,9 @@ func getDeviceTypeFromUA(userAgentStr string) string {
 		return "mobile"
 	}
 	
-	// Check for tablet
-	if ua.Tablet() {
+	// Check for tablet via platform (iPad, Android tablet, etc.)
+	platform := ua.Platform()
+	if platform == "iPad" || (platform == "Android" && ua.OS() == "Android" && !ua.Mobile()) {
 		return "tablet"
 	}
 	
@@ -172,6 +173,7 @@ type AdResponse struct {
 type ClickToken struct {
 	CampaignID string    `json:"campaign_id"`
 	ZoneID     string    `json:"zone_id"`
+	CreativeID string    `json:"creative_id"`
 	Timestamp  time.Time `json:"timestamp"`
 	Nonce      string    `json:"nonce"`
 }
@@ -296,8 +298,8 @@ func (h *AdserveHandler) ServeAd(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Rate limit check using in-memory rate limiter
-		now := time.Now().Unix()
-		if !h.rateLimiter.CheckRate(ip, now) {
+		nowUnix := time.Now().Unix()
+		if !h.rateLimiter.CheckRate(ip, nowUnix) {
 			continue
 		}
 
@@ -327,10 +329,11 @@ func (h *AdserveHandler) ServeAd(w http.ResponseWriter, r *http.Request) {
 		// Check if this is the best candidate
 		if score > bestScore {
 			bestScore = score
-			
+
 			// Generate click token
 			nonce := uuid.New().String()
-			clickToken, err := h.generateClickToken(campaignID, zoneID, nonce)
+			creativeID := campaignMeta["creative_id"]
+			clickToken, err := h.generateClickToken(campaignID, zoneID, creativeID, nonce)
 			if err != nil {
 				continue
 			}
@@ -466,6 +469,11 @@ func (h *AdserveHandler) HandleClick(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, clickURL, http.StatusFound)
 }
 
+func (h *AdserveHandler) HealthCheck(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
+}
+
 func (h *AdserveHandler) HandleConversion(w http.ResponseWriter, r *http.Request) {
 	campaignID := r.URL.Query().Get("campaign_id")
 	if campaignID == "" {
@@ -557,10 +565,11 @@ func (h *AdserveHandler) gammaSample(alpha float64) float64 {
 	}
 }
 
-func (h *AdserveHandler) generateClickToken(campaignID, zoneID, nonce string) (string, error) {
+func (h *AdserveHandler) generateClickToken(campaignID, zoneID, creativeID, nonce string) (string, error) {
 	token := ClickToken{
 		CampaignID: campaignID,
 		ZoneID:     zoneID,
+		CreativeID: creativeID,
 		Timestamp:  time.Now(),
 		Nonce:      nonce,
 	}
