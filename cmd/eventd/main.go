@@ -239,7 +239,7 @@ func deductSpend(ctx context.Context, tx pgx.Tx, campaignID string, costCents in
 
 func creditPublisher(ctx context.Context, tx pgx.Tx, zoneID string, revenueCents int64) error {
 	// Get publisher ID from zone
-	const getPublisherQuery := `
+	const getPublisherQuery = `
 		SELECT s.publisher_id
 		FROM zones z
 		INNER JOIN sites s ON z.site_id = s.id
@@ -251,7 +251,7 @@ func creditPublisher(ctx context.Context, tx pgx.Tx, zoneID string, revenueCents
 	}
 
 	// Update publisher wallet balance
-	const updateWalletQuery := `
+	const updateWalletQuery = `
 		UPDATE wallets
 		SET balance_cents = balance_cents + $1
 		WHERE account_id = $2
@@ -262,7 +262,7 @@ func creditPublisher(ctx context.Context, tx pgx.Tx, zoneID string, revenueCents
 	}
 
 	// Record transaction
-	const insertTxQuery := `
+	const insertTxQuery = `
 		INSERT INTO transactions (account_id, type, amount_cents)
 		VALUES ($1, 'payout', $2)
 	`
