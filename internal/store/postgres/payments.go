@@ -53,7 +53,7 @@ func (db *DB) CreateTransferRecipient(ctx context.Context, accountID uuid.UUID, 
 	`
 
 	var r TransferRecipient
-	err := db.pool.QueryRow(ctx, query, accountID, recipientCode, recipientType, name, phone, email, bankCode, currency).Scan(
+	err = db.pool.QueryRow(ctx, query, accountID, recipientCode, recipientType, name, phone, email, bankCode, currency).Scan(
 		&r.ID, &r.AccountID, &r.RecipientCode, &r.Type, &r.Name, &r.Phone, &r.Email, &r.BankCode, &r.Currency, &r.IsDefault, &r.CreatedAt,
 	)
 	if err != nil {
