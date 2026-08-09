@@ -465,8 +465,8 @@ func (h *AdserveHandler) ServeAd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Record impression to Redis Stream
-	country := getCountryFromIP(ip, h.geoipDB)
-	deviceType := getDeviceTypeFromUA(r.UserAgent())
+	country = getCountryFromIP(ip, h.geoipDB)
+	deviceType = getDeviceTypeFromUA(r.UserAgent())
 	event := map[string]interface{}{
 		"type":         "impression",
 		"campaign_id":  winner.CampaignID,
@@ -534,8 +534,8 @@ func (h *AdserveHandler) HandleClick(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Record click to Redis Stream
-	country := getCountryFromIP(ip, h.geoipDB)
-	deviceType := getDeviceTypeFromUA(r.UserAgent())
+	country = getCountryFromIP(ip, h.geoipDB)
+	deviceType = getDeviceTypeFromUA(r.UserAgent())
 	event := map[string]interface{}{
 		"type":         "click",
 		"campaign_id":  clickToken.CampaignID,
