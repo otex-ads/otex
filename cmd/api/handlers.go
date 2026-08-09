@@ -1761,7 +1761,7 @@ func (h *AdminHandler) ListPendingCreatives(w http.ResponseWriter, r *http.Reque
 	}
 
 	const query = `
-		SELECT id, campaign_id, type, status, created_at
+		SELECT id, campaign_id, format, title, status, created_at
 		FROM creatives
 		WHERE status = 'pending_review'
 		ORDER BY created_at ASC
@@ -1777,15 +1777,16 @@ func (h *AdminHandler) ListPendingCreatives(w http.ResponseWriter, r *http.Reque
 	var creatives []map[string]interface{}
 	for rows.Next() {
 		var id, campaignID uuid.UUID
-		var creativeType, status string
+		var format, title, status string
 		var createdAt time.Time
-		if err := rows.Scan(&id, &campaignID, &creativeType, &status, &createdAt); err != nil {
+		if err := rows.Scan(&id, &campaignID, &format, &title, &status, &createdAt); err != nil {
 			continue
 		}
 		creatives = append(creatives, map[string]interface{}{
 			"id":          id,
 			"campaign_id": campaignID,
-			"type":        creativeType,
+			"format":      format,
+			"title":       title,
 			"status":      status,
 			"created_at":  createdAt,
 		})
