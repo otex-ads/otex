@@ -166,7 +166,8 @@ func getOSFromUA(userAgentStr string) string {
 
 func getBrowserFromUA(userAgentStr string) string {
 	ua := user_agent.New(userAgentStr)
-	browser := strings.ToLower(ua.Browser())
+	browser := ua.Browser()
+	browser = strings.ToLower(browser)
 	if strings.Contains(browser, "chrome") {
 		return "chrome"
 	}
@@ -498,7 +499,7 @@ func (h *AdserveHandler) HandleClick(w http.ResponseWriter, r *http.Request) {
 
 	ip := getClientIP(r)
 	userHash := hashUser(ip, r.UserAgent())
-	
+
 	// Check IP reputation
 	if !h.ipReputationChecker.CheckIPReputation(ip) {
 		httpx.Error(w, http.StatusForbidden, "IP blocked due to suspicious reputation")
@@ -534,8 +535,8 @@ func (h *AdserveHandler) HandleClick(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Record click to Redis Stream
-	country = getCountryFromIP(ip, h.geoipDB)
-	deviceType = getDeviceTypeFromUA(r.UserAgent())
+	country := getCountryFromIP(ip, h.geoipDB)
+	deviceType := getDeviceTypeFromUA(r.UserAgent())
 	event := map[string]interface{}{
 		"type":         "click",
 		"campaign_id":  clickToken.CampaignID,
