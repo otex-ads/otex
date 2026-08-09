@@ -287,3 +287,23 @@ func (db *DB) UpdateZone(ctx context.Context, id uuid.UUID, name, format string,
 
 	return &zone, nil
 }
+
+func (db *DB) GetPublisherIDByZone(ctx context.Context, zoneID uuid.UUID) (uuid.UUID, error) {
+	const query = `
+		SELECT s.publisher_id
+		FROM zones z
+		INNER JOIN sites s ON z.site_id = s.id
+		WHERE z.id = $1
+	`
+
+	var publisherID uuid.UUID
+	err := db.pool.QueryRow(ctx, query, zoneID).Scan(&publisherID)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return uuid.Nil, nil
+		}
+		return uuid.Nil, err
+	}
+
+	return publisherID, nil
+}

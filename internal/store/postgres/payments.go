@@ -40,7 +40,11 @@ type PaystackEvent struct {
 
 func (db *DB) CreateTransferRecipient(ctx context.Context, accountID uuid.UUID, recipientCode, recipientType, name string, phone, email, bankCode *string, currency string) (*TransferRecipient, error) {
 	// Set all other recipients for this account to non-default
-	_, _ = db.pool.Exec(ctx, `UPDATE transfer_recipients SET is_default = false WHERE account_id = $1`, accountID)
+	_, err := db.pool.Exec(ctx, `UPDATE transfer_recipients SET is_default = false WHERE account_id = $1`, accountID)
+	if err != nil {
+		// Log error but don't fail - this is a best-effort operation
+		// The new recipient will still be created as default
+	}
 
 	const query = `
 		INSERT INTO transfer_recipients (account_id, recipient_code, type, name, phone, email, bank_code, currency, is_default)
@@ -198,13 +202,31 @@ type FinancialSummary struct {
 func (db *DB) GetFinancialSummary(ctx context.Context) (*FinancialSummary, error) {
 	var s FinancialSummary
 
-	db.pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM transactions WHERE type = 'topup'`).Scan(&s.TotalDeposits)
-	db.pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM payout_requests WHERE status = 'paid'`).Scan(&s.TotalPublisherPayouts)
-	db.pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM payout_requests WHERE status IN ('pending', 'processing')`).Scan(&s.PendingPayouts)
-	db.pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM transactions WHERE type = 'spend'`).Scan(&s.TotalAdSpend)
+	err := db.pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM transactions WHERE type = 'topup'`).Scan(&s.TotalDeposits)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM payout_requests WHERE status = 'paid'`).Scan(&s.TotalPublisherPayouts)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM payout_requests WHERE status IN ('pending', 'processing')`).Scan(&s.PendingPayouts)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.pool.QueryRow(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM transactions WHERE type = 'spend'`).Scan(&s.TotalAdSpend)
+	if err != nil {
+		return nil, err
+	}
 
 	// Platform fees = total ad spend - total publisher payouts (or from revenue_ledger if available)
-	db.pool.QueryRow(ctx, `SELECT COALESCE(SUM(platform_fee_cents), 0) FROM revenue_ledger`).Scan(&s.TotalPlatformFees)
+	err = db.pool.QueryRow(ctx, `SELECT COALESCE(SUM(platform_fee_cents), 0) FROM revenue_ledger`).Scan(&s.TotalPlatformFees)
+	if err != nil {
+		return nil, err
+	}
 
 	return &s, nil
 }

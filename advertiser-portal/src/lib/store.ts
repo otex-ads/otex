@@ -1,6 +1,6 @@
 // Store backed by API for the advertiser portal
 import { useSyncExternalStore } from "react";
-import { api, type Campaign, type Creative, type WalletTx, type DailyStat } from "./api";
+import { api, type Campaign, type CampaignStatus, type Creative, type WalletTx, type DailyStat } from "./api";
 
 interface State {
   balance: number;
@@ -30,15 +30,23 @@ function set(mut: (s: State) => State) {
 
 async function fetchFromAPI() {
   try {
-    const [campaigns, wallet, stats] = await Promise.all([
+    const [campaigns, creatives, wallet] = await Promise.all([
       api.getCampaigns(),
+      api.listCreatives(),
       api.getTransactions(),
-      api.getStats(),
     ]);
     const walletData = await api.getWallet();
+
+    // Fetch stats for the first campaign (or all campaigns)
+    let stats: DailyStat[] = [];
+    if (campaigns.length > 0) {
+      stats = await api.getStats(campaigns[0].id, 30);
+    }
+
     set((s) => ({
       ...s,
       campaigns,
+      creatives,
       wallet,
       stats,
       balance: walletData.balance,
@@ -74,12 +82,20 @@ export const store = {
   removeCampaign(id: string) {
     set((s) => ({ ...s, campaigns: s.campaigns.filter((c) => c.id !== id) }));
   },
-  addCreative(input: Omit<Creative, "id" | "createdAt">) {
-    const c: Creative = { ...input, id: `cre_${Date.now()}`, createdAt: new Date().toISOString() };
+  async addCreative(input: Omit<Creative, "id" | "createdAt"> & { campaignId: string }) {
+    const c = await api.createCreative({
+      campaignId: input.campaignId,
+      format: input.format,
+      title: input.headline,
+      body: input.description,
+      imageUrl: input.imageUrl,
+      clickUrl: input.landingUrl,
+    });
     set((s) => ({ ...s, creatives: [c, ...s.creatives] }));
     return c;
   },
-  removeCreative(id: string) {
+  async removeCreative(id: string) {
+    await api.deleteCreative(id);
     set((s) => ({ ...s, creatives: s.creatives.filter((c) => c.id !== id) }));
   },
   async topUp(amountKES: number, email: string, channel?: string) {
@@ -100,6 +116,10 @@ export const store = {
       set((s) => ({ ...s, balance: resp.new_balance / 100 }));
     }
     return resp;
+  },
+  async refreshStats(campaignId: string, days: number = 30) {
+    const stats = await api.getStats(campaignId, days);
+    set((s) => ({ ...s, stats }));
   },
 };
 

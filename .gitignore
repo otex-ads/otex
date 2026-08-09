@@ -11,6 +11,13 @@ build/
 # Compiled binaries
 *.exe
 bin/
+api
+api-linux
+
+# Test credential files
+test_*.json
+register*.json
+dev_log.txt
 
 # Environment / secrets
 .env

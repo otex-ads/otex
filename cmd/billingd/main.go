@@ -32,7 +32,7 @@ func main() {
 		MpesaConsumerSecret: getEnv("MPESA_CONSUMER_SECRET", ""),
 		MpesaEnvironment:    getEnv("MPESA_ENVIRONMENT", "sandbox"),
 		MpesaShortcode:      getEnv("MPESA_SHORTCODE", "174379"),
-		MpesaPasskey:        getEnv("MPESA_PASSKEY", "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c619"),
+		MpesaPasskey:        getEnv("MPESA_PASSKEY", ""),
 		MpesaCallbackURL:    getEnv("MPESA_CALLBACK_URL", "http://localhost:8083/callback"),
 		Port:         getEnv("PORT", "8083"),
 	}

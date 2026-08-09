@@ -89,7 +89,13 @@ func main() {
 	protected.HandleFunc("/campaigns/{id}", campaignHandler.Get).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/campaigns/{id}", campaignHandler.Update).Methods("PATCH", "OPTIONS")
 	protected.HandleFunc("/campaigns/{id}/stats", campaignHandler.GetStats).Methods("GET", "OPTIONS")
-	
+
+	// Creative routes (advertiser only)
+	creativeHandler := NewCreativeHandler(db)
+	protected.HandleFunc("/creatives", creativeHandler.List).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/creatives", creativeHandler.Create).Methods("POST", "OPTIONS")
+	protected.HandleFunc("/creatives/{id}", creativeHandler.Delete).Methods("DELETE", "OPTIONS")
+
 	// Zone routes (publisher only)
 	zoneHandler := NewZoneHandler(db)
 	protected.HandleFunc("/sites", zoneHandler.ListSites).Methods("GET", "OPTIONS")

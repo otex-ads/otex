@@ -331,9 +331,104 @@ class ApiClient {
     }));
   }
 
-  async getStats(): Promise<DailyStat[]> {
-    // Backend may not have this endpoint yet, return empty for now
-    return [];
+  async getStats(campaignId?: string, days: number = 30): Promise<DailyStat[]> {
+    if (!campaignId) return [];
+    const endDate = new Date().toISOString().slice(0, 10);
+    const startDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    const stats = await this.request<
+      Array<{
+        date: string;
+        impressions: number;
+        clicks: number;
+        spend_cents: number;
+        conversions: number;
+      }>
+    >(`/api/v1/campaigns/${campaignId}/stats?start_date=${startDate}&end_date=${endDate}`);
+    return (stats || []).map((s) => ({
+      date: s.date,
+      campaignId,
+      impressions: s.impressions,
+      clicks: s.clicks,
+      conversions: s.conversions,
+      spend: s.spend_cents / 100,
+    }));
+  }
+
+  async listCreatives(): Promise<Creative[]> {
+    const creatives = await this.request<
+      Array<{
+        id: string;
+        campaign_id: string;
+        format: string;
+        title?: string;
+        body?: string;
+        icon_url?: string;
+        image_url?: string;
+        click_url: string;
+        status: string;
+        created_at: string;
+      }>
+    >("/api/v1/creatives");
+    return (creatives || []).map((c) => ({
+      id: c.id,
+      name: c.title || c.body || "Untitled",
+      format: c.format as CreativeFormat,
+      headline: c.title,
+      description: c.body,
+      imageUrl: c.image_url || c.icon_url,
+      landingUrl: c.click_url,
+      createdAt: c.created_at,
+    }));
+  }
+
+  async createCreative(data: {
+    campaignId: string;
+    format: CreativeFormat;
+    title?: string;
+    body?: string;
+    iconUrl?: string;
+    imageUrl?: string;
+    clickUrl: string;
+  }): Promise<Creative> {
+    const creative = await this.request<{
+      id: string;
+      campaign_id: string;
+      format: string;
+      title?: string;
+      body?: string;
+      icon_url?: string;
+      image_url?: string;
+      click_url: string;
+      status: string;
+      created_at: string;
+    }>("/api/v1/creatives", {
+      method: "POST",
+      body: JSON.stringify({
+        campaign_id: data.campaignId,
+        format: data.format,
+        title: data.title,
+        body: data.body,
+        icon_url: data.iconUrl,
+        image_url: data.imageUrl,
+        click_url: data.clickUrl,
+      }),
+    });
+    return {
+      id: creative.id,
+      name: creative.title || creative.body || "Untitled",
+      format: creative.format as CreativeFormat,
+      headline: creative.title,
+      description: creative.body,
+      imageUrl: creative.image_url || creative.icon_url,
+      landingUrl: creative.click_url,
+      createdAt: creative.created_at,
+    };
+  }
+
+  async deleteCreative(id: string): Promise<void> {
+    await this.request<{ message: string }>(`/api/v1/creatives/${id}`, {
+      method: "DELETE",
+    });
   }
 }
 

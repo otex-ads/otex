@@ -25,19 +25,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/mssola/user_agent"
+	"github.com/oschwald/geoip2-golang"
 )
 
 type Config struct {
-	RedisURL  string
-	Port      string
-	JWTSecret string
+	RedisURL      string
+	Port          string
+	JWTSecret     string
+	GeoIPDBPath   string
 }
 
 func main() {
 	config := Config{
-		RedisURL:  getEnv("REDIS_URL", "localhost:6379"),
-		Port:      getEnv("PORT", "8081"),
-		JWTSecret: getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
+		RedisURL:    getEnv("REDIS_URL", "localhost:6379"),
+		Port:        getEnv("PORT", "8081"),
+		JWTSecret:   getEnv("JWT_SECRET", "your-secret-key-change-in-production"),
+		GeoIPDBPath: getEnv("GEOIP_DB_PATH", "./GeoLite2-Country.mmdb"),
 	}
 
 	redisClient, err := redis.NewClient(config.RedisURL)
@@ -46,6 +50,19 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	// Open GeoIP database (optional - if file doesn't exist, we'll use fallback)
+	var geoipDB *geoip2.Reader
+	if _, err := os.Stat(config.GeoIPDBPath); err == nil {
+		geoipDB, err = geoip2.Open(config.GeoIPDBPath)
+		if err != nil {
+			log.Printf("Warning: Failed to open GeoIP database: %v (geo lookup disabled)", err)
+		} else {
+			defer geoipDB.Close()
+		}
+	} else {
+		log.Printf("GeoIP database not found at %s (geo lookup disabled)", config.GeoIPDBPath)
+	}
+
 	adserve := &AdserveHandler{
 		redis:               redisClient,
 		jwtSecret:           config.JWTSecret,
@@ -53,6 +70,7 @@ func main() {
 		rateLimiter:         fraud.NewRateLimiter(10, 60), // 10 requests per minute per IP
 		clickValidator:      fraud.NewClickValidator(),
 		ipReputationChecker: fraud.NewIPReputationChecker(),
+		geoipDB:             geoipDB,
 	}
 
 	// Start pub/sub subscriber for campaign updates
@@ -61,6 +79,7 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/serve", adserve.ServeAd).Methods("GET")
 	r.HandleFunc("/click", adserve.HandleClick).Methods("GET")
+	r.HandleFunc("/conversion", adserve.HandleConversion).Methods("GET")
 	r.HandleFunc("/tag.js", adserve.ServeTagJS).Methods("GET")
 	r.HandleFunc("/healthz", adserve.Health).Methods("GET")
 
@@ -82,6 +101,45 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
+func getCountryFromIP(ipStr string, geoipDB *geoip2.Reader) string {
+	if geoipDB == nil {
+		return "KE" // Fallback to Kenya if GeoIP is not available
+	}
+
+	ip := net.ParseIP(ipStr)
+	if ip == nil {
+		return "KE"
+	}
+
+	record, err := geoipDB.Country(ip)
+	if err != nil {
+		return "KE"
+	}
+
+	if len(record.Country.IsoCode) > 0 {
+		return record.Country.IsoCode
+	}
+
+	return "KE"
+}
+
+func getDeviceTypeFromUA(userAgentStr string) string {
+	ua := user_agent.New(userAgentStr)
+	
+	// Check for mobile
+	if ua.Mobile() {
+		return "mobile"
+	}
+	
+	// Check for tablet
+	if ua.Tablet() {
+		return "tablet"
+	}
+	
+	// Default to desktop
+	return "desktop"
+}
+
 type AdserveHandler struct {
 	redis               *redis.Client
 	jwtSecret           string
@@ -89,6 +147,7 @@ type AdserveHandler struct {
 	rateLimiter         *fraud.RateLimiter
 	clickValidator      *fraud.ClickValidator
 	ipReputationChecker *fraud.IPReputationChecker
+	geoipDB             *geoip2.Reader
 }
 
 type ServeRequest struct {
@@ -185,6 +244,21 @@ func (h *AdserveHandler) ServeAd(w http.ResponseWriter, r *http.Request) {
 		// Check creative approval status - only serve approved creatives
 		if campaignMeta["creative_status"] != "approved" {
 			continue
+		}
+
+		// Check campaign scheduling (starts_at/ends_at)
+		now := time.Now()
+		if startsAtStr := campaignMeta["starts_at"]; startsAtStr != "" {
+			startsAt, err := time.Parse(time.RFC3339, startsAtStr)
+			if err == nil && now.Before(startsAt) {
+				continue // Campaign hasn't started yet
+			}
+		}
+		if endsAtStr := campaignMeta["ends_at"]; endsAtStr != "" {
+			endsAt, err := time.Parse(time.RFC3339, endsAtStr)
+			if err == nil && now.After(endsAt) {
+				continue // Campaign has ended
+			}
 		}
 
 		// Check format match
@@ -299,14 +373,16 @@ func (h *AdserveHandler) ServeAd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Record impression to Redis Stream
+	country := getCountryFromIP(ip, h.geoipDB)
+	deviceType := getDeviceTypeFromUA(r.UserAgent())
 	event := map[string]interface{}{
 		"type":         "impression",
 		"campaign_id":  winner.CampaignID,
 		"zone_id":      zoneID,
 		"creative_id":  winner.CreativeID,
 		"user_hash":    hashUser(ip, r.UserAgent()),
-		"country":      "KE", // TODO: implement geo lookup
-		"device_type":  "desktop", // TODO: parse UA
+		"country":      country,
+		"device_type":  deviceType,
 		"cost_cents":   winningCampaignMeta["bid_cents"],
 		"ip":           ip,
 		"user_agent":   r.UserAgent(),
@@ -366,12 +442,16 @@ func (h *AdserveHandler) HandleClick(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Record click to Redis Stream
+	country := getCountryFromIP(ip, h.geoipDB)
+	deviceType := getDeviceTypeFromUA(r.UserAgent())
 	event := map[string]interface{}{
 		"type":         "click",
 		"campaign_id":  clickToken.CampaignID,
 		"zone_id":      clickToken.ZoneID,
-		"creative_id":  campaignMeta["creative_id"],
+		"creative_id":  clickToken.CreativeID,
 		"user_hash":    userHash,
+		"country":      country,
+		"device_type":  deviceType,
 		"cost_cents":   campaignMeta["bid_cents"],
 		"ip":           ip,
 		"user_agent":   r.UserAgent(),
@@ -386,9 +466,41 @@ func (h *AdserveHandler) HandleClick(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, clickURL, http.StatusFound)
 }
 
-func (h *AdserveHandler) Health(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+func (h *AdserveHandler) HandleConversion(w http.ResponseWriter, r *http.Request) {
+	campaignID := r.URL.Query().Get("campaign_id")
+	if campaignID == "" {
+		httpx.Error(w, http.StatusBadRequest, "campaign_id parameter is required")
+		return
+	}
+
+	ip := getClientIP(r)
+	ctx := r.Context()
+
+	// Record conversion to Redis Stream
+	country := getCountryFromIP(ip, h.geoipDB)
+	deviceType := getDeviceTypeFromUA(r.UserAgent())
+	event := map[string]interface{}{
+		"type":         "conversion",
+		"campaign_id":  campaignID,
+		"user_hash":    hashUser(ip, r.UserAgent()),
+		"country":      country,
+		"device_type":  deviceType,
+		"payout_cents": 0, // Will be calculated based on campaign payout rate
+		"ip":           ip,
+		"user_agent":   r.UserAgent(),
+		"timestamp":    time.Now().Unix(),
+	}
+	h.redis.AddEvent(ctx, "events:conversions", event)
+
+	// Return 1x1 transparent pixel for tracking
+	w.Header().Set("Content-Type", "image/gif")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.Write([]byte{
+		0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00,
+		0x00, 0x00, 0x00, 0x21, 0xF9, 0x04, 0x01, 0x0A, 0x00, 0x01,
+		0x00, 0x2C, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
+		0x00, 0x02, 0x02, 0x4C, 0x01, 0x00, 0x3B,
+	})
 }
 
 func (h *AdserveHandler) ServeTagJS(w http.ResponseWriter, r *http.Request) {

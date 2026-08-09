@@ -23,6 +23,7 @@ import { Route as AppCreativesRouteImport } from './routes/_app.creatives'
 import { Route as AppComplianceRouteImport } from './routes/_app.compliance'
 import { Route as AppCdnRouteImport } from './routes/_app.cdn'
 import { Route as AppCampaignsRouteImport } from './routes/_app.campaigns'
+import { Route as AppCampaignsIndexRouteImport } from './routes/_app.campaigns.index'
 import { Route as AppCampaignsNewRouteImport } from './routes/_app.campaigns.new'
 
 const AppRoute = AppRouteImport.update({
@@ -94,6 +95,11 @@ const AppCampaignsRoute = AppCampaignsRouteImport.update({
   path: '/campaigns',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCampaignsIndexRoute = AppCampaignsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppCampaignsRoute,
+} as any)
 const AppCampaignsNewRoute = AppCampaignsNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -115,9 +121,9 @@ export interface FileRoutesByFullPath {
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
   '/campaigns/new': typeof AppCampaignsNewRoute
+  '/campaigns/': typeof AppCampaignsIndexRoute
 }
 export interface FileRoutesByTo {
-  '/campaigns': typeof AppCampaignsRouteWithChildren
   '/cdn': typeof AppCdnRoute
   '/compliance': typeof AppComplianceRoute
   '/creatives': typeof AppCreativesRoute
@@ -131,6 +137,7 @@ export interface FileRoutesByTo {
   '/auth/register': typeof AuthRegisterRoute
   '/': typeof AppIndexRoute
   '/campaigns/new': typeof AppCampaignsNewRoute
+  '/campaigns': typeof AppCampaignsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -149,6 +156,7 @@ export interface FileRoutesById {
   '/auth/register': typeof AuthRegisterRoute
   '/_app/': typeof AppIndexRoute
   '/_app/campaigns/new': typeof AppCampaignsNewRoute
+  '/_app/campaigns/': typeof AppCampaignsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -167,9 +175,9 @@ export interface FileRouteTypes {
     | '/auth/login'
     | '/auth/register'
     | '/campaigns/new'
+    | '/campaigns/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/campaigns'
     | '/cdn'
     | '/compliance'
     | '/creatives'
@@ -183,6 +191,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/'
     | '/campaigns/new'
+    | '/campaigns'
   id:
     | '__root__'
     | '/_app'
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/auth/register'
     | '/_app/'
     | '/_app/campaigns/new'
+    | '/_app/campaigns/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -308,6 +318,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCampaignsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/campaigns/': {
+      id: '/_app/campaigns/'
+      path: '/'
+      fullPath: '/campaigns/'
+      preLoaderRoute: typeof AppCampaignsIndexRouteImport
+      parentRoute: typeof AppCampaignsRoute
+    }
     '/_app/campaigns/new': {
       id: '/_app/campaigns/new'
       path: '/new'
@@ -320,10 +337,12 @@ declare module '@tanstack/react-router' {
 
 interface AppCampaignsRouteChildren {
   AppCampaignsNewRoute: typeof AppCampaignsNewRoute
+  AppCampaignsIndexRoute: typeof AppCampaignsIndexRoute
 }
 
 const AppCampaignsRouteChildren: AppCampaignsRouteChildren = {
   AppCampaignsNewRoute: AppCampaignsNewRoute,
+  AppCampaignsIndexRoute: AppCampaignsIndexRoute,
 }
 
 const AppCampaignsRouteWithChildren = AppCampaignsRoute._addFileChildren(

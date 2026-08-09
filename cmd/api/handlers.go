@@ -411,100 +411,60 @@ func (h *CampaignHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get date range from query params
+	// Get date range from query params (default to last 30 days)
 	startDate := r.URL.Query().Get("start_date")
 	endDate := r.URL.Query().Get("end_date")
+	if startDate == "" {
+		startDate = time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	}
+	if endDate == "" {
+		endDate = time.Now().Format("2006-01-02")
+	}
 
-	// Query impressions table
-	impressionsQuery := `
-		SELECT COALESCE(COUNT(*), 0) as count, COALESCE(SUM(cost_cents), 0) as spend
-		FROM impressions
-		WHERE campaign_id = $1 AND is_fraud = false
+	// Query daily stats from impressions and clicks
+	const dailyQuery = `
+		SELECT 
+			DATE(occurred_at) as date,
+			COALESCE(SUM(CASE WHEN event_type = 'impression' THEN 1 ELSE 0 END), 0) as impressions,
+			COALESCE(SUM(CASE WHEN event_type = 'click' THEN 1 ELSE 0 END), 0) as clicks,
+			COALESCE(SUM(CASE WHEN event_type = 'impression' THEN cost_cents ELSE 0 END), 0) as impression_spend,
+			COALESCE(SUM(CASE WHEN event_type = 'click' THEN cost_cents ELSE 0 END), 0) as click_spend
+		FROM (
+			SELECT occurred_at, cost_cents, 'impression' as event_type FROM impressions 
+			WHERE campaign_id = $1 AND is_fraud = false AND DATE(occurred_at) >= $2 AND DATE(occurred_at) <= $3
+			UNION ALL
+			SELECT occurred_at, cost_cents, 'click' as event_type FROM clicks 
+			WHERE campaign_id = $1 AND is_fraud = false AND DATE(occurred_at) >= $2 AND DATE(occurred_at) <= $3
+		) events
+		GROUP BY DATE(occurred_at)
+		ORDER BY date
 	`
 
-	var impArgs []interface{}
-	impArgs = append(impArgs, id)
-
-	if startDate != "" {
-		impressionsQuery += " AND DATE(occurred_at) >= $" + string(rune(len(impArgs)+1))
-		impArgs = append(impArgs, startDate)
-	}
-	if endDate != "" {
-		impressionsQuery += " AND DATE(occurred_at) <= $" + string(rune(len(impArgs)+1))
-		impArgs = append(impArgs, endDate)
-	}
-
-	var impressionsCount, impressionsSpend int64
-	err = h.db.Pool().QueryRow(r.Context(), impressionsQuery, impArgs...).Scan(&impressionsCount, &impressionsSpend)
+	rows, err := h.db.Pool().Query(r.Context(), dailyQuery, id, startDate, endDate)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "Database error")
 		return
 	}
+	defer rows.Close()
 
-	// Query clicks table
-	clicksQuery := `
-		SELECT COALESCE(COUNT(*), 0) as count, COALESCE(SUM(cost_cents), 0) as spend
-		FROM clicks
-		WHERE campaign_id = $1 AND is_fraud = false
-	`
-
-	var clickArgs []interface{}
-	clickArgs = append(clickArgs, id)
-
-	if startDate != "" {
-		clicksQuery += " AND DATE(occurred_at) >= $" + string(rune(len(clickArgs)+1))
-		clickArgs = append(clickArgs, startDate)
-	}
-	if endDate != "" {
-		clicksQuery += " AND DATE(occurred_at) <= $" + string(rune(len(clickArgs)+1))
-		clickArgs = append(clickArgs, endDate)
+	type DailyStat struct {
+		Date          string `json:"date"`
+		Impressions   int64  `json:"impressions"`
+		Clicks        int64  `json:"clicks"`
+		SpendCents    int64  `json:"spend_cents"`
+		Conversions   int64  `json:"conversions"`
 	}
 
-	var clicksCount, clicksSpend int64
-	err = h.db.Pool().QueryRow(r.Context(), clicksQuery, clickArgs...).Scan(&clicksCount, &clicksSpend)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "Database error")
-		return
-	}
-
-	// Query conversions table
-	conversionsQuery := `
-		SELECT COALESCE(COUNT(*), 0) as count, COALESCE(SUM(payout_cents), 0) as payout
-		FROM conversions
-		WHERE campaign_id = $1
-	`
-
-	var convArgs []interface{}
-	convArgs = append(convArgs, id)
-
-	if startDate != "" {
-		conversionsQuery += " AND DATE(occurred_at) >= $" + string(rune(len(convArgs)+1))
-		convArgs = append(convArgs, startDate)
-	}
-	if endDate != "" {
-		conversionsQuery += " AND DATE(occurred_at) <= $" + string(rune(len(convArgs)+1))
-		convArgs = append(convArgs, endDate)
-	}
-
-	var conversionsCount, conversionsPayout int64
-	err = h.db.Pool().QueryRow(r.Context(), conversionsQuery, convArgs...).Scan(&conversionsCount, &conversionsPayout)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "Database error")
-		return
-	}
-
-	// Calculate CTR
-	var ctr float64
-	if impressionsCount > 0 {
-		ctr = float64(clicksCount) / float64(impressionsCount) * 100
-	}
-
-	stats := map[string]interface{}{
-		"impressions": impressionsCount,
-		"clicks":      clicksCount,
-		"conversions": conversionsCount,
-		"ctr":         ctr,
-		"spend_cents": impressionsSpend + clicksSpend,
+	var stats []DailyStat
+	for rows.Next() {
+		var stat DailyStat
+		var impressionSpend, clickSpend int64
+		if err := rows.Scan(&stat.Date, &stat.Impressions, &stat.Clicks, &impressionSpend, &clickSpend); err != nil {
+			continue
+		}
+		stat.SpendCents = impressionSpend + clickSpend
+		stat.Conversions = 0 // TODO: query conversions table
+		stats = append(stats, stat)
 	}
 
 	httpx.JSON(w, http.StatusOK, stats)
@@ -536,6 +496,138 @@ func (h *CampaignHandler) Update(w http.ResponseWriter, r *http.Request) {
 	h.redis.PublishCampaignUpdate(r.Context(), campaign.ID.String())
 
 	httpx.JSON(w, http.StatusOK, campaign)
+}
+
+type CreativeHandler struct {
+	db *postgres.DB
+}
+
+func NewCreativeHandler(db *postgres.DB) *CreativeHandler {
+	return &CreativeHandler{db: db}
+}
+
+type CreateCreativeRequest struct {
+	CampaignID string `json:"campaign_id"`
+	Format     string `json:"format"`
+	Title      string `json:"title"`
+	Body       string `json:"body"`
+	IconURL    string `json:"icon_url"`
+	ImageURL   string `json:"image_url"`
+	ClickURL   string `json:"click_url"`
+}
+
+func (h *CreativeHandler) Create(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := mw.AccountIDFromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	var req CreateCreativeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.CampaignID == "" || req.Format == "" || req.ClickURL == "" {
+		httpx.Error(w, http.StatusBadRequest, "campaign_id, format, and click_url are required")
+		return
+	}
+
+	campaignID, err := uuid.Parse(req.CampaignID)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid campaign_id")
+		return
+	}
+
+	// Verify the campaign belongs to this advertiser
+	campaign, err := h.db.GetCampaignByID(r.Context(), campaignID)
+	if err != nil || campaign == nil {
+		httpx.Error(w, http.StatusNotFound, "Campaign not found")
+		return
+	}
+	if campaign.AdvertiserID != accountID {
+		httpx.Error(w, http.StatusForbidden, "You can only create creatives for your own campaigns")
+		return
+	}
+
+	creative, err := h.db.CreateCreative(r.Context(), campaignID, req.Format, req.Title, req.Body, req.IconURL, req.ImageURL, req.ClickURL, "pending_review")
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to create creative")
+		return
+	}
+
+	httpx.JSON(w, http.StatusCreated, creative)
+}
+
+func (h *CreativeHandler) List(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := mw.AccountIDFromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	// Get all campaigns for this advertiser
+	campaigns, err := h.db.ListCampaignsByAdvertiser(r.Context(), accountID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to fetch campaigns")
+		return
+	}
+
+	// Collect all creatives for these campaigns
+	var allCreatives []*postgres.Creative
+	for _, campaign := range campaigns {
+		creatives, err := h.db.ListCreativesByCampaign(r.Context(), campaign.ID)
+		if err != nil {
+			continue
+		}
+		allCreatives = append(allCreatives, creatives...)
+	}
+
+	httpx.JSON(w, http.StatusOK, allCreatives)
+}
+
+func (h *CreativeHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	accountID, ok := mw.AccountIDFromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	vars := mux.Vars(r)
+	id, err := uuid.Parse(vars["id"])
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid creative ID")
+		return
+	}
+
+	// Get the creative to verify ownership
+	creative, err := h.db.GetCreativeByID(r.Context(), id)
+	if err != nil || creative == nil {
+		httpx.Error(w, http.StatusNotFound, "Creative not found")
+		return
+	}
+
+	// Verify the campaign belongs to this advertiser
+	campaign, err := h.db.GetCampaignByID(r.Context(), creative.CampaignID)
+	if err != nil || campaign == nil {
+		httpx.Error(w, http.StatusNotFound, "Campaign not found")
+		return
+	}
+	if campaign.AdvertiserID != accountID {
+		httpx.Error(w, http.StatusForbidden, "You can only delete your own creatives")
+		return
+	}
+
+	// Delete the creative
+	const query = `DELETE FROM creatives WHERE id = $1`
+	_, err = h.db.Pool().Exec(r.Context(), query, id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to delete creative")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "Creative deleted"})
 }
 
 type ZoneHandler struct {
@@ -971,14 +1063,17 @@ func (h *ZoneHandler) GetZoneStats(w http.ResponseWriter, r *http.Request) {
 
 	var args []interface{}
 	args = append(args, id, accountID)
+	paramIndex := 3
 
 	if startDate != "" {
-		query += " AND DATE(created_at) >= $" + string(rune(len(args)+1))
+		query += fmt.Sprintf(" AND DATE(created_at) >= $%d", paramIndex)
 		args = append(args, startDate)
+		paramIndex++
 	}
 	if endDate != "" {
-		query += " AND DATE(created_at) <= $" + string(rune(len(args)+1))
+		query += fmt.Sprintf(" AND DATE(created_at) <= $%d", paramIndex)
 		args = append(args, endDate)
+		paramIndex++
 	}
 
 	var stats struct {

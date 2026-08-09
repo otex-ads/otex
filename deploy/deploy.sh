@@ -9,13 +9,14 @@ set -e
 VPS_IP="167.233.171.202"
 VPS_USER="root"
 APP_DIR="/opt/adnet"
-SSH_KEY="$SCRIPT_DIR/id_ed25519_linux"
 
 # Anchor paths on THIS script's location, never on the caller's cwd.
 # (When launched via a --login shell the cwd can be C:\Windows\System32,
 #  which previously caused tar to archive the entire Windows directory.)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Use SSH key from WSL home directory with proper permissions
+SSH_KEY="$HOME/.ssh/id_ed25519_linux"
 
 ENV=${1:-staging}
 

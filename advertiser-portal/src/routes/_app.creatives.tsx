@@ -18,13 +18,15 @@ const FORMATS: CreativeFormat[] = ["push", "popunder", "native", "banner", "inte
 
 function CreativesPage() {
   const creatives = useStore((s) => s.creatives) || [];
+  const campaigns = useStore((s) => s.campaigns) || [];
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
+  const [campaignId, setCampaignId] = useState("");
   const [format, setFormat] = useState<CreativeFormat>("push");
   const [headline, setHeadline] = useState("");
   const [description, setDescription] = useState("");
   const [landingUrl, setLandingUrl] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -35,7 +37,7 @@ function CreativesPage() {
   };
 
   const reset = () => {
-    setName("");
+    setCampaignId("");
     setFormat("push");
     setHeadline("");
     setDescription("");
@@ -43,20 +45,28 @@ function CreativesPage() {
     setImageUrl("");
   };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !landingUrl.trim()) return toast.error("Name and landing URL are required");
-    store.addCreative({
-      name: name.trim(),
-      format,
-      headline,
-      description,
-      landingUrl: landingUrl.trim(),
-      imageUrl,
-    });
-    toast.success("Creative added");
-    setOpen(false);
-    reset();
+    if (!campaignId || !landingUrl.trim()) return toast.error("Campaign and landing URL are required");
+    setLoading(true);
+    try {
+      await store.addCreative({
+        name: "", // Not used by backend
+        format,
+        headline,
+        description,
+        landingUrl: landingUrl.trim(),
+        imageUrl,
+        campaignId,
+      });
+      toast.success("Creative added");
+      setOpen(false);
+      reset();
+    } catch (error) {
+      toast.error("Failed to create creative");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -107,8 +117,15 @@ function CreativesPage() {
                   </div>
                 </div>
                 <button
-                  onClick={() => {
-                    if (confirm(`Delete "${c.name}"?`)) store.removeCreative(c.id);
+                  onClick={async () => {
+                    if (confirm(`Delete "${c.name}"?`)) {
+                      try {
+                        await store.removeCreative(c.id);
+                        toast.success("Creative deleted");
+                      } catch (error) {
+                        toast.error("Failed to delete creative");
+                      }
+                    }
                   }}
                   className="grid size-8 place-items-center rounded-md text-danger hover:bg-danger-soft"
                 >
@@ -137,13 +154,19 @@ function CreativesPage() {
       >
         <form onSubmit={submit} className="space-y-4">
           <label className="block">
-            <div className="mb-1.5 text-xs font-medium">Name</div>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+            <div className="mb-1.5 text-xs font-medium">Campaign</div>
+            <select
+              value={campaignId}
+              onChange={(e) => setCampaignId(e.target.value)}
               className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm"
-              placeholder="e.g. Push Ad · Q3 Fintech"
-            />
+            >
+              <option value="">Select a campaign</option>
+              {campaigns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.format})
+                </option>
+              ))}
+            </select>
           </label>
           <label className="block">
             <div className="mb-1.5 text-xs font-medium">Format</div>

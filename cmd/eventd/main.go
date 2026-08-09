@@ -163,9 +163,17 @@ func processImpression(ctx context.Context, tx pgx.Tx, event map[string]interfac
 		return err
 	}
 
-	// Deduct from advertiser wallet (async - would be better in a separate transaction)
-	// For now, we'll do it inline
-	return deductSpend(ctx, tx, campaignID, costCents)
+	// Deduct from advertiser wallet
+	if err := deductSpend(ctx, tx, campaignID, costCents); err != nil {
+		return err
+	}
+
+	// Credit publisher wallet (75% revenue share)
+	if err := creditPublisher(ctx, tx, zoneID, costCents*75/100); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func processClick(ctx context.Context, tx pgx.Tx, event map[string]interface{}) error {
@@ -187,7 +195,16 @@ func processClick(ctx context.Context, tx pgx.Tx, event map[string]interface{}) 
 	}
 
 	// Deduct from advertiser wallet
-	return deductSpend(ctx, tx, campaignID, costCents)
+	if err := deductSpend(ctx, tx, campaignID, costCents); err != nil {
+		return err
+	}
+
+	// Credit publisher wallet (75% revenue share)
+	if err := creditPublisher(ctx, tx, zoneID, costCents*75/100); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func deductSpend(ctx context.Context, tx pgx.Tx, campaignID string, costCents int64) error {
@@ -217,5 +234,38 @@ func deductSpend(ctx context.Context, tx pgx.Tx, campaignID string, costCents in
 		VALUES ($1, 'spend', $2)
 	`
 	_, err = tx.Exec(ctx, insertTxQuery, advertiserID, costCents)
+	return err
+}
+
+func creditPublisher(ctx context.Context, tx pgx.Tx, zoneID string, revenueCents int64) error {
+	// Get publisher ID from zone
+	const getPublisherQuery := `
+		SELECT s.publisher_id
+		FROM zones z
+		INNER JOIN sites s ON z.site_id = s.id
+		WHERE z.id = $1
+	`
+	var publisherID string
+	if err := tx.QueryRow(ctx, getPublisherQuery, zoneID).Scan(&publisherID); err != nil {
+		return err
+	}
+
+	// Update publisher wallet balance
+	const updateWalletQuery := `
+		UPDATE wallets
+		SET balance_cents = balance_cents + $1
+		WHERE account_id = $2
+	`
+	_, err := tx.Exec(ctx, updateWalletQuery, revenueCents, publisherID)
+	if err != nil {
+		return err
+	}
+
+	// Record transaction
+	const insertTxQuery := `
+		INSERT INTO transactions (account_id, type, amount_cents)
+		VALUES ($1, 'payout', $2)
+	`
+	_, err = tx.Exec(ctx, insertTxQuery, publisherID, revenueCents)
 	return err
 }
