@@ -17,13 +17,19 @@ type Site struct {
 }
 
 type Zone struct {
-	ID             uuid.UUID `json:"id"`
-	SiteID         uuid.UUID `json:"site_id"`
-	Name           string    `json:"name"`
-	Format         string    `json:"format"`
-	FloorPriceCents int      `json:"floor_price_cents"`
-	Status         string    `json:"status"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID               uuid.UUID  `json:"id"`
+	SiteID           uuid.UUID  `json:"site_id"`
+	Name             string     `json:"name"`
+	Format           string     `json:"format"`
+	FloorPriceCents  int        `json:"floor_price_cents"`
+	Status           string     `json:"status"`
+	Countries        []string   `json:"countries,omitempty"`
+	DeviceTypes      []string   `json:"device_types,omitempty"`
+	OS               []string   `json:"os,omitempty"`
+	Browsers         []string   `json:"browsers,omitempty"`
+	Carriers         []string   `json:"carriers,omitempty"`
+	ConnectionTypes  []string   `json:"connection_types,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
 }
 
 func (db *DB) CreateSite(ctx context.Context, publisherID uuid.UUID, domain, status string) (*Site, error) {
@@ -137,21 +143,27 @@ func (db *DB) DeleteSite(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-func (db *DB) CreateZone(ctx context.Context, siteID uuid.UUID, name, format string, floorPriceCents int, status string) (*Zone, error) {
+func (db *DB) CreateZone(ctx context.Context, siteID uuid.UUID, name, format string, floorPriceCents int, status string, countries, deviceTypes, os, browsers, carriers, connectionTypes []string) (*Zone, error) {
 	const query = `
-		INSERT INTO zones (site_id, name, format, floor_price_cents, status)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, site_id, name, format, floor_price_cents, status, created_at
+		INSERT INTO zones (site_id, name, format, floor_price_cents, status, countries, device_types, os, browsers, carriers, connection_types)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		RETURNING id, site_id, name, format, floor_price_cents, status, countries, device_types, os, browsers, carriers, connection_types, created_at
 	`
 
 	var zone Zone
-	err := db.pool.QueryRow(ctx, query, siteID, name, format, floorPriceCents, status).Scan(
+	err := db.pool.QueryRow(ctx, query, siteID, name, format, floorPriceCents, status, countries, deviceTypes, os, browsers, carriers, connectionTypes).Scan(
 		&zone.ID,
 		&zone.SiteID,
 		&zone.Name,
 		&zone.Format,
 		&zone.FloorPriceCents,
 		&zone.Status,
+		&zone.Countries,
+		&zone.DeviceTypes,
+		&zone.OS,
+		&zone.Browsers,
+		&zone.Carriers,
+		&zone.ConnectionTypes,
 		&zone.CreatedAt,
 	)
 	if err != nil {
@@ -163,7 +175,7 @@ func (db *DB) CreateZone(ctx context.Context, siteID uuid.UUID, name, format str
 
 func (db *DB) GetZoneByID(ctx context.Context, id uuid.UUID) (*Zone, error) {
 	const query = `
-		SELECT id, site_id, name, format, floor_price_cents, status, created_at
+		SELECT id, site_id, name, format, floor_price_cents, status, countries, device_types, os, browsers, carriers, connection_types, created_at
 		FROM zones
 		WHERE id = $1
 	`
@@ -176,6 +188,12 @@ func (db *DB) GetZoneByID(ctx context.Context, id uuid.UUID) (*Zone, error) {
 		&zone.Format,
 		&zone.FloorPriceCents,
 		&zone.Status,
+		&zone.Countries,
+		&zone.DeviceTypes,
+		&zone.OS,
+		&zone.Browsers,
+		&zone.Carriers,
+		&zone.ConnectionTypes,
 		&zone.CreatedAt,
 	)
 	if err != nil {
@@ -190,7 +208,7 @@ func (db *DB) GetZoneByID(ctx context.Context, id uuid.UUID) (*Zone, error) {
 
 func (db *DB) ListZonesBySite(ctx context.Context, siteID uuid.UUID) ([]*Zone, error) {
 	const query = `
-		SELECT id, site_id, name, format, floor_price_cents, status, created_at
+		SELECT id, site_id, name, format, floor_price_cents, status, countries, device_types, os, browsers, carriers, connection_types, created_at
 		FROM zones
 		WHERE site_id = $1
 		ORDER BY created_at DESC
@@ -212,6 +230,12 @@ func (db *DB) ListZonesBySite(ctx context.Context, siteID uuid.UUID) ([]*Zone, e
 			&zone.Format,
 			&zone.FloorPriceCents,
 			&zone.Status,
+			&zone.Countries,
+			&zone.DeviceTypes,
+			&zone.OS,
+			&zone.Browsers,
+			&zone.Carriers,
+			&zone.ConnectionTypes,
 			&zone.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -224,7 +248,7 @@ func (db *DB) ListZonesBySite(ctx context.Context, siteID uuid.UUID) ([]*Zone, e
 
 func (db *DB) ListZonesByPublisher(ctx context.Context, publisherID uuid.UUID) ([]*Zone, error) {
 	const query = `
-		SELECT z.id, z.site_id, z.name, z.format, z.floor_price_cents, z.status, z.created_at
+		SELECT z.id, z.site_id, z.name, z.format, z.floor_price_cents, z.status, z.countries, z.device_types, z.os, z.browsers, z.carriers, z.connection_types, z.created_at
 		FROM zones z
 		INNER JOIN sites s ON z.site_id = s.id
 		WHERE s.publisher_id = $1
@@ -247,6 +271,12 @@ func (db *DB) ListZonesByPublisher(ctx context.Context, publisherID uuid.UUID) (
 			&zone.Format,
 			&zone.FloorPriceCents,
 			&zone.Status,
+			&zone.Countries,
+			&zone.DeviceTypes,
+			&zone.OS,
+			&zone.Browsers,
+			&zone.Carriers,
+			&zone.ConnectionTypes,
 			&zone.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -263,22 +293,28 @@ func (db *DB) DeleteZone(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
-func (db *DB) UpdateZone(ctx context.Context, id uuid.UUID, name, format string, floorPriceCents int, status string) (*Zone, error) {
+func (db *DB) UpdateZone(ctx context.Context, id uuid.UUID, name, format string, floorPriceCents int, status string, countries, deviceTypes, os, browsers, carriers, connectionTypes []string) (*Zone, error) {
 	const query = `
 		UPDATE zones
-		SET name = $2, format = $3, floor_price_cents = $4, status = $5
+		SET name = $2, format = $3, floor_price_cents = $4, status = $5, countries = $6, device_types = $7, os = $8, browsers = $9, carriers = $10, connection_types = $11
 		WHERE id = $1
-		RETURNING id, site_id, name, format, floor_price_cents, status, created_at
+		RETURNING id, site_id, name, format, floor_price_cents, status, countries, device_types, os, browsers, carriers, connection_types, created_at
 	`
 
 	var zone Zone
-	err := db.pool.QueryRow(ctx, query, id, name, format, floorPriceCents, status).Scan(
+	err := db.pool.QueryRow(ctx, query, id, name, format, floorPriceCents, status, countries, deviceTypes, os, browsers, carriers, connectionTypes).Scan(
 		&zone.ID,
 		&zone.SiteID,
 		&zone.Name,
 		&zone.Format,
 		&zone.FloorPriceCents,
 		&zone.Status,
+		&zone.Countries,
+		&zone.DeviceTypes,
+		&zone.OS,
+		&zone.Browsers,
+		&zone.Carriers,
+		&zone.ConnectionTypes,
 		&zone.CreatedAt,
 	)
 	if err != nil {

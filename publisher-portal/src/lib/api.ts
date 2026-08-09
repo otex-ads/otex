@@ -126,6 +126,12 @@ export interface Zone {
   revenue: number;
   impressions: number;
   clicks: number;
+  countries?: string[];
+  deviceTypes?: string[];
+  os?: string[];
+  browsers?: string[];
+  carriers?: string[];
+  connectionTypes?: string[];
 }
 
 export interface StatsSummary {

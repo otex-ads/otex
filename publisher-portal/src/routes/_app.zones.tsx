@@ -36,6 +36,12 @@ interface ZoneForm {
   siteId: string;
   size: AdSize;
   format: AdFormat;
+  countries: string[];
+  deviceTypes: string[];
+  os: string[];
+  browsers: string[];
+  carriers: string[];
+  connectionTypes: string[];
 }
 
 function ZonesPage() {
@@ -236,6 +242,12 @@ function ZoneFormModal({
     siteId: zone?.siteId ?? sites[0]?.id ?? "",
     size: zone?.size ?? "300x250",
     format: zone?.format ?? "banner",
+    countries: zone?.countries ?? [],
+    deviceTypes: zone?.deviceTypes ?? [],
+    os: zone?.os ?? [],
+    browsers: zone?.browsers ?? [],
+    carriers: zone?.carriers ?? [],
+    connectionTypes: zone?.connectionTypes ?? [],
   });
 
   const submit = () => {
@@ -297,6 +309,64 @@ function ZoneFormModal({
             </select>
           </FormField>
         </div>
+        <FormField label="Targeting (optional)">
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Countries (ISO codes, e.g., KE, UG, ZA)</label>
+              <input
+                className={inputCls}
+                value={form.countries.join(", ")}
+                onChange={(e) => setForm({ ...form, countries: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                placeholder="KE, UG, ZA"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Device types</label>
+              <input
+                className={inputCls}
+                value={form.deviceTypes.join(", ")}
+                onChange={(e) => setForm({ ...form, deviceTypes: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                placeholder="mobile, desktop, tablet"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Operating systems</label>
+              <input
+                className={inputCls}
+                value={form.os.join(", ")}
+                onChange={(e) => setForm({ ...form, os: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                placeholder="android, ios"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Browsers</label>
+              <input
+                className={inputCls}
+                value={form.browsers.join(", ")}
+                onChange={(e) => setForm({ ...form, browsers: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                placeholder="chrome, firefox, safari"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Carriers</label>
+              <input
+                className={inputCls}
+                value={form.carriers.join(", ")}
+                onChange={(e) => setForm({ ...form, carriers: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                placeholder="safaricom, airtel"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Connection types</label>
+              <input
+                className={inputCls}
+                value={form.connectionTypes.join(", ")}
+                onChange={(e) => setForm({ ...form, connectionTypes: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                placeholder="wifi, 4g, 3g"
+              />
+            </div>
+          </div>
+        </FormField>
         {zone && onToggle && (
           <button
             type="button"

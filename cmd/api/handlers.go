@@ -884,19 +884,31 @@ type CreateSiteRequest struct {
 }
 
 type CreateZoneRequest struct {
-	SiteID          uuid.UUID `json:"siteId"`
-	Name            string    `json:"name"`
-	Format          string    `json:"format"`
-	Size            string    `json:"size"`
-	FloorPriceCents int       `json:"floor_price_cents"`
+	SiteID           uuid.UUID  `json:"siteId"`
+	Name             string     `json:"name"`
+	Format           string     `json:"format"`
+	Size             string     `json:"size"`
+	FloorPriceCents  int        `json:"floor_price_cents"`
+	Countries        []string   `json:"countries,omitempty"`
+	DeviceTypes      []string   `json:"device_types,omitempty"`
+	OS               []string   `json:"os,omitempty"`
+	Browsers         []string   `json:"browsers,omitempty"`
+	Carriers         []string   `json:"carriers,omitempty"`
+	ConnectionTypes  []string   `json:"connection_types,omitempty"`
 }
 
 type UpdateZoneRequest struct {
-	Name            string `json:"name"`
-	Format          string `json:"format"`
-	Size            string `json:"size"`
-	Status          string `json:"status"`
-	FloorPriceCents int    `json:"floor_price_cents"`
+	Name             string    `json:"name"`
+	Format           string    `json:"format"`
+	Size             string    `json:"size"`
+	Status           string    `json:"status"`
+	FloorPriceCents  int       `json:"floor_price_cents"`
+	Countries        []string  `json:"countries,omitempty"`
+	DeviceTypes      []string  `json:"device_types,omitempty"`
+	OS               []string  `json:"os,omitempty"`
+	Browsers         []string  `json:"browsers,omitempty"`
+	Carriers         []string  `json:"carriers,omitempty"`
+	ConnectionTypes  []string  `json:"connection_types,omitempty"`
 }
 
 func (h *ZoneHandler) CreateSite(w http.ResponseWriter, r *http.Request) {
@@ -1117,7 +1129,7 @@ func (h *ZoneHandler) CreateZone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	zone, err := h.db.CreateZone(r.Context(), siteID, req.Name, req.Format, req.FloorPriceCents, "active")
+	zone, err := h.db.CreateZone(r.Context(), siteID, req.Name, req.Format, req.FloorPriceCents, "active", req.Countries, req.DeviceTypes, req.OS, req.Browsers, req.Carriers, req.ConnectionTypes)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "Failed to create zone")
 		return
@@ -1183,8 +1195,32 @@ func (h *ZoneHandler) UpdateZone(w http.ResponseWriter, r *http.Request) {
 	if floor == 0 {
 		floor = existing.FloorPriceCents
 	}
+	countries := req.Countries
+	if countries == nil {
+		countries = existing.Countries
+	}
+	deviceTypes := req.DeviceTypes
+	if deviceTypes == nil {
+		deviceTypes = existing.DeviceTypes
+	}
+	os := req.OS
+	if os == nil {
+		os = existing.OS
+	}
+	browsers := req.Browsers
+	if browsers == nil {
+		browsers = existing.Browsers
+	}
+	carriers := req.Carriers
+	if carriers == nil {
+		carriers = existing.Carriers
+	}
+	connectionTypes := req.ConnectionTypes
+	if connectionTypes == nil {
+		connectionTypes = existing.ConnectionTypes
+	}
 
-	zone, err := h.db.UpdateZone(r.Context(), zoneID, name, format, floor, status)
+	zone, err := h.db.UpdateZone(r.Context(), zoneID, name, format, floor, status, countries, deviceTypes, os, browsers, carriers, connectionTypes)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "Failed to update zone")
 		return
