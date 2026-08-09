@@ -80,6 +80,11 @@ function LoginPage() {
               className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40"
               placeholder="••••••••"
             />
+            <div className="mt-1.5 text-right">
+              <Link to="/auth/forgot-password" className="text-xs text-primary hover:underline">
+                Forgot password?
+              </Link>
+            </div>
           </div>
           <button
             type="submit"

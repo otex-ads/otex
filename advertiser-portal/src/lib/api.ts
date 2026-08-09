@@ -189,6 +189,20 @@ class ApiClient {
     return res;
   }
 
+  async requestPasswordReset(data: { email: string }): Promise<void> {
+    await this.request<void>("/api/v1/auth/password-reset/request", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async resetPassword(data: { token: string; new_password: string }): Promise<void> {
+    await this.request<void>("/api/v1/auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
   async getCampaigns(): Promise<Campaign[]> {
     const campaigns = await this.request<
       Array<{

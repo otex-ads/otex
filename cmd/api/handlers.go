@@ -51,6 +51,11 @@ type PasswordResetRequest struct {
 	Email string `json:"email"`
 }
 
+type ConfirmPasswordResetRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
 type AuthResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -484,6 +489,47 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 	}()
 
 	httpx.JSON(w, http.StatusOK, map[string]string{"message": "If the email exists, a reset link has been sent"})
+}
+
+func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
+	var req ConfirmPasswordResetRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.Token == "" || req.NewPassword == "" {
+		httpx.Error(w, http.StatusBadRequest, "Token and new password are required")
+		return
+	}
+
+	if len(req.NewPassword) < 8 {
+		httpx.Error(w, http.StatusBadRequest, "Password must be at least 8 characters")
+		return
+	}
+
+	// Validate the token and extract account info
+	accountID, email, accountType, err := h.authService.ValidateAccessToken(req.Token)
+	if err != nil {
+		httpx.Error(w, http.StatusUnauthorized, "Invalid or expired token")
+		return
+	}
+
+	// Hash the new password
+	hashedPassword, err := h.authService.HashPassword(req.NewPassword)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to hash password")
+		return
+	}
+
+	// Update the password in the database
+	err = h.db.UpdateAccountPassword(r.Context(), accountID, hashedPassword)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "Failed to update password")
+		return
+	}
+
+	httpx.JSON(w, http.StatusOK, map[string]string{"message": "Password reset successfully"})
 }
 
 type CampaignHandler struct {

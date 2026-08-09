@@ -150,3 +150,14 @@ func (db *DB) ListAccountsByType(ctx context.Context, accountType string) ([]*Ac
 
 	return accounts, nil
 }
+
+func (db *DB) UpdateAccountPassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	const query = `
+		UPDATE accounts
+		SET password_hash = $2
+		WHERE id = $1
+	`
+
+	_, err := db.pool.Exec(ctx, query, id, passwordHash)
+	return err
+}

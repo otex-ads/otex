@@ -80,6 +80,7 @@ func main() {
 	public.HandleFunc("/auth/refresh", authHandler.Refresh).Methods("POST", "OPTIONS")
 	public.HandleFunc("/auth/verify-email", authHandler.RequestVerifyEmail).Methods("POST", "OPTIONS")
 	public.HandleFunc("/auth/password-reset", authHandler.RequestPasswordReset).Methods("POST", "OPTIONS")
+	public.HandleFunc("/auth/password-reset/confirm", authHandler.ConfirmPasswordReset).Methods("POST", "OPTIONS")
 
 	// Protected routes (auth required)
 	protected := api.PathPrefix("/v1").Subrouter()

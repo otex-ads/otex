@@ -211,7 +211,12 @@ export const api = {
       body: JSON.stringify({ email, password }),
       auth: false,
     }),
-  register: (email: string, password: string, accountType: string, companyName?: string) =>
+  register: (
+    email: string,
+    password: string,
+    accountType: string,
+    companyName?: string,
+  ) =>
     apiFetch<{
       access_token: string;
       refresh_token: string;
@@ -226,6 +231,18 @@ export const api = {
         account_type: accountType,
         company_name: companyName,
       }),
+      auth: false,
+    }),
+  requestPasswordReset: (data: { email: string }) =>
+    apiFetch<void>("/api/v1/auth/password-reset/request", {
+      method: "POST",
+      body: JSON.stringify(data),
+      auth: false,
+    }),
+  resetPassword: (data: { token: string; new_password: string }) =>
+    apiFetch<void>("/api/v1/auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify(data),
       auth: false,
     }),
 
