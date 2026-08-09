@@ -364,7 +364,7 @@ func (h *AuthHandler) RequestVerifyEmail(w http.ResponseWriter, r *http.Request)
 
 	// Send verification email asynchronously
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		name := req.Email
@@ -443,7 +443,7 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 
 	// Send password reset email asynchronously
 	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		_, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		name := req.Email
@@ -1598,9 +1598,11 @@ func (h *PayoutHandler) RequestPayout(w http.ResponseWriter, r *http.Request) {
 		if recipient != nil {
 			if recipient.Type == "bank_account" {
 				method = "Bank Transfer"
-				destination = fmt.Sprintf("%s ••••", recipient.BankName)
-			} else if recipient.Phone != "" {
-				destination = recipient.Phone
+				if recipient.BankCode != nil {
+					destination = fmt.Sprintf("%s ••••", *recipient.BankCode)
+				}
+			} else if recipient.Phone != nil && *recipient.Phone != "" {
+				destination = *recipient.Phone
 			}
 		}
 
@@ -1612,7 +1614,7 @@ func (h *PayoutHandler) RequestPayout(w http.ResponseWriter, r *http.Request) {
 			"threshold":     threshold,
 			"method":        method,
 			"destination":   destination,
-			"requestedAt":   payout.CreatedAt.Format("02 Jan 2006, 15:04 EAT"),
+			"requestedAt":   payout.RequestedAt.Format("02 Jan 2006, 15:04 EAT"),
 			"reviewUrl":     "https://admin.otexads.com/payouts/pending",
 		}
 
@@ -1854,8 +1856,8 @@ func (h *AdminHandler) ModerateCreative(w http.ResponseWriter, r *http.Request) 
 
 			emailData := map[string]interface{}{
 				"name":           advertiser.Email,
-				"creativeName":   creative.Name,
-				"creativeFormat": creative.Type,
+				"creativeName":   creative.Title,
+				"creativeFormat": creative.Format,
 				"decision":       req.Action,
 				"reason":         req.Reason,
 				"reviewUrl":      "https://advertiser.otexads.com/creatives",
