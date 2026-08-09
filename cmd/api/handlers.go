@@ -458,7 +458,7 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 
 		emailData := map[string]interface{}{
 			"name":        name,
-			"resetUrl":    fmt.Sprintf("https://%s.otexads.com/reset?token=%s", account.Type, resetToken),
+			"resetUrl":    fmt.Sprintf("https://%s.otexads.com/auth/reset-password?token=%s", account.Type, resetToken),
 			"expiresIn":  "1 hour",
 			"ipAddress":   ipAddress,
 			"requestedAt": time.Now().Format("02 Jan 2006, 15:04 EAT"),
