@@ -37,9 +37,9 @@ export function Modal({ open, onClose, title, description, children, size = "md"
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className={`relative w-full ${widths[size]} rounded-2xl border border-border bg-card p-6 shadow-2xl`}
+            className={`relative flex max-h-[85vh] w-full ${widths[size]} flex-col rounded-2xl border border-border bg-card p-6 shadow-2xl`}
           >
-            <div className="mb-5 flex items-start justify-between gap-4">
+            <div className="mb-5 flex shrink-0 items-start justify-between gap-4">
               <div>
                 <h2 className="text-base font-semibold text-foreground">{title}</h2>
                 {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
@@ -51,7 +51,7 @@ export function Modal({ open, onClose, title, description, children, size = "md"
                 <X className="size-4" />
               </button>
             </div>
-            {children}
+            <div className="overflow-y-auto">{children}</div>
           </motion.div>
         </div>
       )}
