@@ -537,18 +537,17 @@ func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Reques
 func (h *AuthHandler) GetTargetingOptions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Get all unique targeting values from active campaigns
+	// Get all unique targeting values from active campaigns.
+	// Each field is aggregated via its own correlated subquery so that
+	// unnest() on independent array columns doesn't get zipped together.
 	const query = `
-		SELECT 
-			array_agg(DISTINCT unnest(countries)) as countries,
-			array_agg(DISTINCT unnest(device_types)) as device_types,
-			array_agg(DISTINCT unnest(os)) as os,
-			array_agg(DISTINCT unnest(browsers)) as browsers,
-			array_agg(DISTINCT unnest(carriers)) as carriers,
-			array_agg(DISTINCT unnest(connection_types)) as connection_types
-		FROM targeting_rules tr
-		JOIN campaigns c ON tr.campaign_id = c.id
-		WHERE c.status = 'active'
+		SELECT
+			(SELECT coalesce(array_agg(DISTINCT v), '{}') FROM targeting_rules tr JOIN campaigns c ON tr.campaign_id = c.id, unnest(tr.countries) AS v WHERE c.status = 'active') AS countries,
+			(SELECT coalesce(array_agg(DISTINCT v), '{}') FROM targeting_rules tr JOIN campaigns c ON tr.campaign_id = c.id, unnest(tr.device_types) AS v WHERE c.status = 'active') AS device_types,
+			(SELECT coalesce(array_agg(DISTINCT v), '{}') FROM targeting_rules tr JOIN campaigns c ON tr.campaign_id = c.id, unnest(tr.os) AS v WHERE c.status = 'active') AS os,
+			(SELECT coalesce(array_agg(DISTINCT v), '{}') FROM targeting_rules tr JOIN campaigns c ON tr.campaign_id = c.id, unnest(tr.browsers) AS v WHERE c.status = 'active') AS browsers,
+			(SELECT coalesce(array_agg(DISTINCT v), '{}') FROM targeting_rules tr JOIN campaigns c ON tr.campaign_id = c.id, unnest(tr.carriers) AS v WHERE c.status = 'active') AS carriers,
+			(SELECT coalesce(array_agg(DISTINCT v), '{}') FROM targeting_rules tr JOIN campaigns c ON tr.campaign_id = c.id, unnest(tr.connection_types) AS v WHERE c.status = 'active') AS connection_types
 	`
 
 	var countries, deviceTypes, os, browsers, carriers, connectionTypes []string
@@ -561,6 +560,7 @@ func (h *AuthHandler) GetTargetingOptions(w http.ResponseWriter, r *http.Request
 		&connectionTypes,
 	)
 	if err != nil {
+		log.Printf("GetTargetingOptions query error: %v", err)
 		httpx.Error(w, http.StatusInternalServerError, "Failed to fetch targeting options")
 		return
 	}

@@ -178,6 +178,7 @@ function ZonesPage() {
       {creating && (
         <ZoneFormModal
           sites={sites.data ?? []}
+          targetingOptions={targetingOptions.data}
           onClose={() => setCreating(false)}
           onSubmit={(v) => create.mutate(v, { onSuccess: () => setCreating(false) })}
           loading={create.isPending}
@@ -188,6 +189,7 @@ function ZonesPage() {
         <ZoneFormModal
           zone={editing}
           sites={sites.data ?? []}
+          targetingOptions={targetingOptions.data}
           onClose={() => setEditing(null)}
           onSubmit={(v) =>
             update.mutate({ id: editing.id, patch: v }, { onSuccess: () => setEditing(null) })
@@ -228,6 +230,7 @@ function ZonesPage() {
 function ZoneFormModal({
   zone,
   sites,
+  targetingOptions,
   onClose,
   onSubmit,
   loading,
@@ -236,6 +239,14 @@ function ZoneFormModal({
 }: {
   zone?: Zone;
   sites: Site[];
+  targetingOptions?: {
+    countries?: string[];
+    device_types?: string[];
+    os?: string[];
+    browsers?: string[];
+    carriers?: string[];
+    connection_types?: string[];
+  };
   onClose: () => void;
   onSubmit: (v: ZoneForm) => void;
   loading?: boolean;
@@ -326,7 +337,7 @@ function ZoneFormModal({
                 list="countries-list"
               />
               <datalist id="countries-list">
-                {targetingOptions.data?.countries?.map((c) => (
+                {targetingOptions?.countries?.map((c) => (
                   <option key={c} value={c} />
                 ))}
               </datalist>
@@ -341,7 +352,7 @@ function ZoneFormModal({
                 list="device-types-list"
               />
               <datalist id="device-types-list">
-                {targetingOptions.data?.device_types?.map((d) => (
+                {targetingOptions?.device_types?.map((d) => (
                   <option key={d} value={d} />
                 ))}
               </datalist>
@@ -356,7 +367,7 @@ function ZoneFormModal({
                 list="os-list"
               />
               <datalist id="os-list">
-                {targetingOptions.data?.os?.map((o) => (
+                {targetingOptions?.os?.map((o) => (
                   <option key={o} value={o} />
                 ))}
               </datalist>
@@ -371,7 +382,7 @@ function ZoneFormModal({
                 list="browsers-list"
               />
               <datalist id="browsers-list">
-                {targetingOptions.data?.browsers?.map((b) => (
+                {targetingOptions?.browsers?.map((b) => (
                   <option key={b} value={b} />
                 ))}
               </datalist>
@@ -386,7 +397,7 @@ function ZoneFormModal({
                 list="carriers-list"
               />
               <datalist id="carriers-list">
-                {targetingOptions.data?.carriers?.map((c) => (
+                {targetingOptions?.carriers?.map((c) => (
                   <option key={c} value={c} />
                 ))}
               </datalist>
@@ -401,7 +412,7 @@ function ZoneFormModal({
                 list="connection-types-list"
               />
               <datalist id="connection-types-list">
-                {targetingOptions.data?.connection_types?.map((c) => (
+                {targetingOptions?.connection_types?.map((c) => (
                   <option key={c} value={c} />
                 ))}
               </datalist>
