@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
+import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
 import { Route as AuthRegisterRouteImport } from './routes/auth.register'
 import { Route as AuthLoginRouteImport } from './routes/auth.login'
+import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
 import { Route as AppWalletRouteImport } from './routes/_app.wallet'
 import { Route as AppTargetingRouteImport } from './routes/_app.targeting'
 import { Route as AppSupportRouteImport } from './routes/_app.support'
@@ -35,6 +37,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/auth/reset-password',
+  path: '/auth/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRegisterRoute = AuthRegisterRouteImport.update({
   id: '/auth/register',
   path: '/auth/register',
@@ -43,6 +50,11 @@ const AuthRegisterRoute = AuthRegisterRouteImport.update({
 const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/auth/login',
   path: '/auth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
+  id: '/auth/forgot-password',
+  path: '/auth/forgot-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppWalletRoute = AppWalletRouteImport.update({
@@ -118,8 +130,10 @@ export interface FileRoutesByFullPath {
   '/support': typeof AppSupportRoute
   '/targeting': typeof AppTargetingRoute
   '/wallet': typeof AppWalletRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/campaigns/new': typeof AppCampaignsNewRoute
   '/campaigns/': typeof AppCampaignsIndexRoute
 }
@@ -133,8 +147,10 @@ export interface FileRoutesByTo {
   '/support': typeof AppSupportRoute
   '/targeting': typeof AppTargetingRoute
   '/wallet': typeof AppWalletRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/': typeof AppIndexRoute
   '/campaigns/new': typeof AppCampaignsNewRoute
   '/campaigns': typeof AppCampaignsIndexRoute
@@ -152,8 +168,10 @@ export interface FileRoutesById {
   '/_app/support': typeof AppSupportRoute
   '/_app/targeting': typeof AppTargetingRoute
   '/_app/wallet': typeof AppWalletRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/login': typeof AuthLoginRoute
   '/auth/register': typeof AuthRegisterRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
   '/_app/': typeof AppIndexRoute
   '/_app/campaigns/new': typeof AppCampaignsNewRoute
   '/_app/campaigns/': typeof AppCampaignsIndexRoute
@@ -172,8 +190,10 @@ export interface FileRouteTypes {
     | '/support'
     | '/targeting'
     | '/wallet'
+    | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
+    | '/auth/reset-password'
     | '/campaigns/new'
     | '/campaigns/'
   fileRoutesByTo: FileRoutesByTo
@@ -187,8 +207,10 @@ export interface FileRouteTypes {
     | '/support'
     | '/targeting'
     | '/wallet'
+    | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
+    | '/auth/reset-password'
     | '/'
     | '/campaigns/new'
     | '/campaigns'
@@ -205,8 +227,10 @@ export interface FileRouteTypes {
     | '/_app/support'
     | '/_app/targeting'
     | '/_app/wallet'
+    | '/auth/forgot-password'
     | '/auth/login'
     | '/auth/register'
+    | '/auth/reset-password'
     | '/_app/'
     | '/_app/campaigns/new'
     | '/_app/campaigns/'
@@ -214,8 +238,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -234,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/auth/reset-password': {
+      id: '/auth/reset-password'
+      path: '/auth/reset-password'
+      fullPath: '/auth/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth/register': {
       id: '/auth/register'
       path: '/auth/register'
@@ -246,6 +279,13 @@ declare module '@tanstack/react-router' {
       path: '/auth/login'
       fullPath: '/auth/login'
       preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/forgot-password': {
+      id: '/auth/forgot-password'
+      path: '/auth/forgot-password'
+      fullPath: '/auth/forgot-password'
+      preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/wallet': {
@@ -381,8 +421,10 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
   AuthRegisterRoute: AuthRegisterRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

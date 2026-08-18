@@ -56,6 +56,11 @@ function ZonesPage() {
     queryFn: () => api.getTargetingOptions(),
     retry: false,
   });
+  const campaigns = useQuery({
+    queryKey: ["campaigns"],
+    queryFn: () => api.listCampaigns(),
+    retry: false,
+  });
   const qc = useQueryClient();
   const invalidate = () => qc.invalidateQueries({ queryKey: ["zones"] });
 
@@ -179,6 +184,7 @@ function ZonesPage() {
         <ZoneFormModal
           sites={sites.data ?? []}
           targetingOptions={targetingOptions.data}
+          campaigns={campaigns.data ?? []}
           onClose={() => setCreating(false)}
           onSubmit={(v) => create.mutate(v, { onSuccess: () => setCreating(false) })}
           loading={create.isPending}
@@ -190,6 +196,7 @@ function ZonesPage() {
           zone={editing}
           sites={sites.data ?? []}
           targetingOptions={targetingOptions.data}
+          campaigns={campaigns.data ?? []}
           onClose={() => setEditing(null)}
           onSubmit={(v) =>
             update.mutate({ id: editing.id, patch: v }, { onSuccess: () => setEditing(null) })
@@ -231,6 +238,7 @@ function ZoneFormModal({
   zone,
   sites,
   targetingOptions,
+  campaigns,
   onClose,
   onSubmit,
   loading,
@@ -247,6 +255,17 @@ function ZoneFormModal({
     carriers?: string[];
     connection_types?: string[];
   };
+  campaigns: Array<{
+    id: string;
+    name: string;
+    format: string;
+    status: string;
+    targeting: {
+      countries: string[];
+      devices: string[];
+      os: string[];
+    };
+  }>;
   onClose: () => void;
   onSubmit: (v: ZoneForm) => void;
   loading?: boolean;
@@ -265,6 +284,35 @@ function ZoneFormModal({
     carriers: zone?.carriers ?? [],
     connectionTypes: zone?.connectionTypes ?? [],
   });
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
+
+  // Check if campaign targeting matches zone targeting
+  const getMatchingCampaigns = () => {
+    if (!campaigns || campaigns.length === 0) return [];
+    return campaigns.filter((campaign) => {
+      if (campaign.status !== "active") return false;
+      // Check format match
+      if (campaign.format !== form.format) return false;
+      // Check countries overlap
+      if (form.countries.length > 0 && campaign.targeting.countries.length > 0) {
+        const hasOverlap = form.countries.some((c) => campaign.targeting.countries.includes(c));
+        if (!hasOverlap) return false;
+      }
+      // Check devices overlap
+      if (form.deviceTypes.length > 0 && campaign.targeting.devices.length > 0) {
+        const hasOverlap = form.deviceTypes.some((d) => campaign.targeting.devices.includes(d));
+        if (!hasOverlap) return false;
+      }
+      // Check OS overlap
+      if (form.os.length > 0 && campaign.targeting.os.length > 0) {
+        const hasOverlap = form.os.some((o) => campaign.targeting.os.includes(o));
+        if (!hasOverlap) return false;
+      }
+      return true;
+    });
+  };
+
+  const matchingCampaigns = getMatchingCampaigns();
 
   const submit = () => {
     if (!form.name.trim()) return toast.error("Zone name required.");
@@ -332,7 +380,11 @@ function ZoneFormModal({
               <input
                 className={inputCls}
                 value={form.countries.join(", ")}
-                onChange={(e) => setForm({ ...form, countries: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const countries = raw.split(",").map(s => s.trim()).filter(Boolean);
+                  setForm({ ...form, countries });
+                }}
                 placeholder="KE, UG, ZA"
                 list="countries-list"
               />
@@ -347,7 +399,11 @@ function ZoneFormModal({
               <input
                 className={inputCls}
                 value={form.deviceTypes.join(", ")}
-                onChange={(e) => setForm({ ...form, deviceTypes: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const deviceTypes = raw.split(",").map(s => s.trim()).filter(Boolean);
+                  setForm({ ...form, deviceTypes });
+                }}
                 placeholder="mobile, desktop, tablet"
                 list="device-types-list"
               />
@@ -362,7 +418,11 @@ function ZoneFormModal({
               <input
                 className={inputCls}
                 value={form.os.join(", ")}
-                onChange={(e) => setForm({ ...form, os: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const os = raw.split(",").map(s => s.trim()).filter(Boolean);
+                  setForm({ ...form, os });
+                }}
                 placeholder="android, ios"
                 list="os-list"
               />
@@ -377,7 +437,11 @@ function ZoneFormModal({
               <input
                 className={inputCls}
                 value={form.browsers.join(", ")}
-                onChange={(e) => setForm({ ...form, browsers: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const browsers = raw.split(",").map(s => s.trim()).filter(Boolean);
+                  setForm({ ...form, browsers });
+                }}
                 placeholder="chrome, firefox, safari"
                 list="browsers-list"
               />
@@ -392,7 +456,11 @@ function ZoneFormModal({
               <input
                 className={inputCls}
                 value={form.carriers.join(", ")}
-                onChange={(e) => setForm({ ...form, carriers: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const carriers = raw.split(",").map(s => s.trim()).filter(Boolean);
+                  setForm({ ...form, carriers });
+                }}
                 placeholder="safaricom, airtel"
                 list="carriers-list"
               />
@@ -407,7 +475,11 @@ function ZoneFormModal({
               <input
                 className={inputCls}
                 value={form.connectionTypes.join(", ")}
-                onChange={(e) => setForm({ ...form, connectionTypes: e.target.value.split(",").map(s => s.trim()).filter(Boolean) })}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const connectionTypes = raw.split(",").map(s => s.trim()).filter(Boolean);
+                  setForm({ ...form, connectionTypes });
+                }}
                 placeholder="wifi, 4g, 3g"
                 list="connection-types-list"
               />
@@ -417,6 +489,54 @@ function ZoneFormModal({
                 ))}
               </datalist>
             </div>
+          </div>
+        </FormField>
+        <FormField label="Matching Campaigns">
+          <div className="space-y-2">
+            {matchingCampaigns.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No active campaigns match this zone's targeting. Adjust targeting or wait for campaigns to be created.
+              </p>
+            ) : (
+              <>
+                <select
+                  className={selectCls}
+                  value={selectedCampaignId}
+                  onChange={(e) => setSelectedCampaignId(e.target.value)}
+                >
+                  <option value="">Select a campaign to view details</option>
+                  {matchingCampaigns.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.format}) · {c.status}
+                    </option>
+                  ))}
+                </select>
+                {selectedCampaignId && (
+                  <div className="rounded-md bg-muted/50 p-3 text-xs">
+                    {(() => {
+                      const selected = matchingCampaigns.find((c) => c.id === selectedCampaignId);
+                      if (!selected) return null;
+                      return (
+                        <div className="space-y-1">
+                          <p className="font-medium text-foreground">{selected.name}</p>
+                          <p className="text-muted-foreground">Format: {selected.format}</p>
+                          <p className="text-muted-foreground">Status: {selected.status}</p>
+                          <p className="text-muted-foreground">
+                            Countries: {selected.targeting.countries.join(", ") || "All"}
+                          </p>
+                          <p className="text-muted-foreground">
+                            Devices: {selected.targeting.devices.join(", ") || "All"}
+                          </p>
+                          <p className="text-muted-foreground">
+                            OS: {selected.targeting.os.join(", ") || "All"}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </FormField>
         {zone && onToggle && (

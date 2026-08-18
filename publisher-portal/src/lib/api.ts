@@ -331,4 +331,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+
+  // Campaigns (for matching with publisher zones)
+  listCampaigns: () =>
+    apiFetch<
+      Array<{
+        id: string;
+        name: string;
+        format: string;
+        status: string;
+        targeting: {
+          countries: string[];
+          devices: string[];
+          os: string[];
+        };
+      }>
+    >("/api/v1/campaigns", { auth: false }),
 };
