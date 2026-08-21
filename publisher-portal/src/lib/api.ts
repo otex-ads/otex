@@ -346,5 +346,5 @@ export const api = {
           os: string[];
         };
       }>
-    >("/api/v1/campaigns", { auth: false }),
+    >("/api/v1/campaigns"),
 };
