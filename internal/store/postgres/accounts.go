@@ -9,13 +9,14 @@ import (
 )
 
 type Account struct {
-	ID           uuid.UUID `json:"id"`
-	Type         string    `json:"type"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
-	CompanyName  *string   `json:"company_name,omitempty"`
-	Status       string    `json:"status"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID                       uuid.UUID  `json:"id"`
+	Type                     string     `json:"type"`
+	Email                    string     `json:"email"`
+	PasswordHash             string     `json:"-"`
+	CompanyName              *string    `json:"company_name,omitempty"`
+	Status                   string     `json:"status"`
+	CreatedAt                time.Time  `json:"created_at"`
+	LastLowBalanceEmailAt    *time.Time `json:"last_low_balance_email_at,omitempty"`
 }
 
 type APIKey struct {
@@ -31,7 +32,7 @@ func (db *DB) CreateAccount(ctx context.Context, accountType, email, passwordHas
 	const query = `
 		INSERT INTO accounts (type, email, password_hash, company_name, status)
 		VALUES ($1, $2, $3, $4, 'active')
-		RETURNING id, type, email, password_hash, company_name, status, created_at
+		RETURNING id, type, email, password_hash, company_name, status, created_at, last_low_balance_email_at
 	`
 
 	var account Account
@@ -43,6 +44,7 @@ func (db *DB) CreateAccount(ctx context.Context, accountType, email, passwordHas
 		&account.CompanyName,
 		&account.Status,
 		&account.CreatedAt,
+		&account.LastLowBalanceEmailAt,
 	)
 	if err != nil {
 		return nil, err
@@ -53,7 +55,7 @@ func (db *DB) CreateAccount(ctx context.Context, accountType, email, passwordHas
 
 func (db *DB) GetAccountByEmail(ctx context.Context, email string) (*Account, error) {
 	const query = `
-		SELECT id, type, email, password_hash, company_name, status, created_at
+		SELECT id, type, email, password_hash, company_name, status, created_at, last_low_balance_email_at
 		FROM accounts
 		WHERE email = $1
 	`
@@ -67,6 +69,7 @@ func (db *DB) GetAccountByEmail(ctx context.Context, email string) (*Account, er
 		&account.CompanyName,
 		&account.Status,
 		&account.CreatedAt,
+		&account.LastLowBalanceEmailAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -80,7 +83,7 @@ func (db *DB) GetAccountByEmail(ctx context.Context, email string) (*Account, er
 
 func (db *DB) GetAccountByID(ctx context.Context, id uuid.UUID) (*Account, error) {
 	const query = `
-		SELECT id, type, email, password_hash, company_name, status, created_at
+		SELECT id, type, email, password_hash, company_name, status, created_at, last_low_balance_email_at
 		FROM accounts
 		WHERE id = $1
 	`
@@ -94,6 +97,7 @@ func (db *DB) GetAccountByID(ctx context.Context, id uuid.UUID) (*Account, error
 		&account.CompanyName,
 		&account.Status,
 		&account.CreatedAt,
+		&account.LastLowBalanceEmailAt,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -118,7 +122,7 @@ func (db *DB) UpdateAccountStatus(ctx context.Context, id uuid.UUID, status stri
 
 func (db *DB) ListAccountsByType(ctx context.Context, accountType string) ([]*Account, error) {
 	const query = `
-		SELECT id, type, email, password_hash, company_name, status, created_at
+		SELECT id, type, email, password_hash, company_name, status, created_at, last_low_balance_email_at
 		FROM accounts
 		WHERE type = $1
 		ORDER BY created_at DESC
@@ -141,6 +145,7 @@ func (db *DB) ListAccountsByType(ctx context.Context, accountType string) ([]*Ac
 			&account.CompanyName,
 			&account.Status,
 			&account.CreatedAt,
+			&account.LastLowBalanceEmailAt,
 		)
 		if err != nil {
 			return nil, err
@@ -159,5 +164,16 @@ func (db *DB) UpdateAccountPassword(ctx context.Context, id uuid.UUID, passwordH
 	`
 
 	_, err := db.pool.Exec(ctx, query, id, passwordHash)
+	return err
+}
+
+func (db *DB) UpdateLastLowBalanceEmailAt(ctx context.Context, id uuid.UUID) error {
+	const query = `
+		UPDATE accounts
+		SET last_low_balance_email_at = NOW()
+		WHERE id = $1
+	`
+
+	_, err := db.pool.Exec(ctx, query, id)
 	return err
 }

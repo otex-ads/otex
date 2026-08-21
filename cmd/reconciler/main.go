@@ -431,6 +431,8 @@ func (r *Reconciler) CheckLowBalance(ctx context.Context) error {
 
 	// Low balance threshold: KSh 3,000 (300,000 cents)
 	const lowBalanceThreshold = 300000
+	// Cooldown: only send once per 24 hours
+	const emailCooldown = 24 * time.Hour
 
 	for _, advertiser := range advertisers {
 		// Get wallet balance
@@ -441,6 +443,10 @@ func (r *Reconciler) CheckLowBalance(ctx context.Context) error {
 
 		// Check if balance is below threshold
 		if wallet.BalanceCents < lowBalanceThreshold {
+			// Check cooldown: only send if last email was more than 24 hours ago
+			if advertiser.LastLowBalanceEmailAt != nil && time.Since(*advertiser.LastLowBalanceEmailAt) < emailCooldown {
+				continue
+			}
 			// Send low balance email
 			go r.sendLowBalanceEmail(ctx, advertiser, wallet.BalanceCents, lowBalanceThreshold)
 		}
@@ -486,5 +492,9 @@ func (r *Reconciler) sendLowBalanceEmail(ctx context.Context, account *postgres.
 		log.Printf("Emailer returned status %d for low balance email to %s", resp.StatusCode, account.Email)
 	} else {
 		log.Printf("Low balance email sent to %s", account.Email)
+		// Update timestamp to prevent repeated emails
+		if err := r.db.UpdateLastLowBalanceEmailAt(ctx, account.ID); err != nil {
+			log.Printf("Failed to update last_low_balance_email_at for %s: %v", account.Email, err)
+		}
 	}
 }
