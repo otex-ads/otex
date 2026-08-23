@@ -163,7 +163,7 @@ func main() {
 	api.HandleFunc("/webhooks/paystack", webhookHandler.PaystackWebhook).Methods("POST")
 
 	// Marketplace routes (interconnection between advertisers and publishers)
-	marketplaceHandler := NewMarketplaceHandler(db)
+	marketplaceHandler := NewMarketplaceHandler(db, redisClient)
 	protected.HandleFunc("/marketplace/sites", marketplaceHandler.GetAvailableSites).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/marketplace/zones", marketplaceHandler.GetAvailableZones).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/marketplace/campaigns", marketplaceHandler.GetActiveCampaigns).Methods("GET", "OPTIONS")

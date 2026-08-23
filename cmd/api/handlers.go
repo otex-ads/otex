@@ -2418,11 +2418,12 @@ func (h *AdminHandler) GetCohortAnalysis(w http.ResponseWriter, r *http.Request)
 
 // MarketplaceHandler handles interconnection between advertisers and publishers
 type MarketplaceHandler struct {
-	db *postgres.DB
+	db    *postgres.DB
+	redis *redis.Client
 }
 
-func NewMarketplaceHandler(db *postgres.DB) *MarketplaceHandler {
-	return &MarketplaceHandler{db: db}
+func NewMarketplaceHandler(db *postgres.DB, redisClient *redis.Client) *MarketplaceHandler {
+	return &MarketplaceHandler{db: db, redis: redisClient}
 }
 
 // GetAvailableSites - allows advertisers to see all publisher sites for targeting
@@ -2549,19 +2550,33 @@ func (h *MarketplaceHandler) GetActiveCampaigns(w http.ResponseWriter, r *http.R
 	}
 
 	ctx := r.Context()
-	
+
 	query := `
-		SELECT c.id, c.name, c.advertiser_id, a.company_name, c.status, c.budget_cents,
-		       c.daily_budget_cents, c.start_date, c.end_date,
-		       COALESCE(SUM(st.spend_cents), 0) as total_spend,
-		       COALESCE(SUM(st.impressions), 0) as total_impressions
+		SELECT c.id, c.name, c.advertiser_id, a.company_name, c.status,
+		       c.total_budget_cents, c.daily_budget_cents, c.starts_at, c.ends_at,
+		       COALESCE(tr.countries, ARRAY[]::text[]),
+		       COALESCE(tr.device_types, ARRAY[]::text[]),
+		       COALESCE(tr.os, ARRAY[]::text[]),
+		       COALESCE((
+		           SELECT COUNT(*) FROM impressions i WHERE i.campaign_id = c.id
+		       ), 0) AS total_impressions,
+		       COALESCE((
+		           SELECT SUM(rl.gross_amount_cents) FROM revenue_ledger rl WHERE rl.campaign_id = c.id
+		       ), 0) AS total_spend,
+		       cr.format
 		FROM campaigns c
 		JOIN accounts a ON a.id = c.advertiser_id
-		LEFT JOIN stats st ON st.campaign_id = c.id
-		WHERE c.status = 'active' AND (c.end_date IS NULL OR c.end_date > NOW())
-		GROUP BY c.id, c.name, c.advertiser_id, a.company_name, c.status, c.budget_cents,
-		         c.daily_budget_cents, c.start_date, c.end_date
-		ORDER BY total_spend DESC
+		LEFT JOIN LATERAL (
+			SELECT countries, device_types, os FROM targeting_rules t
+			WHERE t.campaign_id = c.id LIMIT 1
+		) tr ON true
+		LEFT JOIN LATERAL (
+			SELECT format FROM creatives cv
+			WHERE cv.campaign_id = c.id AND cv.status = 'approved'
+			ORDER BY cv.created_at LIMIT 1
+		) cr ON true
+		WHERE c.status = 'active' AND (c.ends_at IS NULL OR c.ends_at > NOW())
+		ORDER BY c.created_at DESC
 		LIMIT 100
 	`
 
@@ -2572,29 +2587,50 @@ func (h *MarketplaceHandler) GetActiveCampaigns(w http.ResponseWriter, r *http.R
 	}
 	defer rows.Close()
 
+	type CampaignTargeting struct {
+		Countries []string `json:"countries"`
+		Devices   []string `json:"devices"`
+		OS        []string `json:"os"`
+	}
+
 	type CampaignInfo struct {
-		ID             string     `json:"id"`
-		Name           string     `json:"name"`
-		AdvertiserID   string     `json:"advertiser_id"`
-		CompanyName    *string    `json:"company_name"`
-		Status         string     `json:"status"`
-		BudgetCents    int64      `json:"budget_cents"`
-		DailyBudgetCents int64    `json:"daily_budget_cents"`
-		StartDate      *time.Time `json:"start_date"`
-		EndDate        *time.Time `json:"end_date"`
-		TotalSpend     int64      `json:"total_spend"`
-		TotalImpressions int64    `json:"total_impressions"`
+		ID               string            `json:"id"`
+		Name             string            `json:"name"`
+		AdvertiserID     string            `json:"advertiser_id"`
+		CompanyName      *string           `json:"company_name"`
+		Status           string            `json:"status"`
+		Format           string            `json:"format"`
+		BudgetCents      int64             `json:"budget_cents"`
+		DailyBudgetCents int64             `json:"daily_budget_cents"`
+		StartDate        *time.Time        `json:"start_date"`
+		EndDate          *time.Time        `json:"end_date"`
+		TotalSpend       int64             `json:"total_spend"`
+		TotalImpressions int64             `json:"total_impressions"`
+		Targeting        CampaignTargeting `json:"targeting"`
 	}
 
 	var campaigns []CampaignInfo
 	for rows.Next() {
 		var c CampaignInfo
+		var format *string
 		if err := rows.Scan(&c.ID, &c.Name, &c.AdvertiserID, &c.CompanyName, &c.Status,
 			&c.BudgetCents, &c.DailyBudgetCents, &c.StartDate, &c.EndDate,
-			&c.TotalSpend, &c.TotalImpressions); err != nil {
+			&c.Targeting.Countries, &c.Targeting.Devices, &c.Targeting.OS,
+			&c.TotalImpressions, &c.TotalSpend, &format); err != nil {
 			continue
 		}
+		if format != nil {
+			c.Format = *format
+		} else if h.redis != nil {
+			// Fall back to Redis campaign metadata (set at creation time) if no approved creative yet
+			if meta, err := h.redis.GetCampaignMeta(ctx, c.ID); err == nil {
+				c.Format = meta["format"]
+			}
+		}
 		campaigns = append(campaigns, c)
+	}
+	if campaigns == nil {
+		campaigns = []CampaignInfo{}
 	}
 
 	httpx.JSON(w, http.StatusOK, campaigns)

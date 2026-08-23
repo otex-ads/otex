@@ -346,5 +346,5 @@ export const api = {
           os: string[];
         };
       }>
-    >("/api/v1/campaigns"),
+    >("/api/v1/marketplace/campaigns"),
 };
