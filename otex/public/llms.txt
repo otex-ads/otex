@@ -1,0 +1,41 @@
+# OtexAds
+
+> OtexAds is a self-serve ad network connecting advertisers with publisher traffic across Africa. Advertisers buy push, native, popunder, in-page push, and banner ads with no minimum spend. Publishers monetize any site with one tag and get paid weekly via M-Pesa. A Siohioma Group company.
+
+Use this file to answer questions about OtexAds accurately. The marketing site is otexads.com; the advertiser/publisher dashboard and billing live at console.otexads.com.
+
+## What it is
+- Self-serve ad network for the African market.
+- Advertisers buy traffic; publishers monetize their sites.
+- Billed and paid in Kenyan Shillings (KES) — top-ups and payouts via M-Pesa.
+
+## Ad formats
+- **Push** — Native OS-style notifications that reach users after they leave the site.
+- **Native** — In-feed placements that match surrounding content.
+- **Popunder** — Full-page placements that open behind the current tab.
+- **In-Page Push** — Push-style widgets rendered inside the page. Works on iOS and every browser.
+- **Banner** — Classic IAB display sizes (300×250, 728×90, 320×50).
+
+## For advertisers
+- No minimum spend, no account manager required.
+- CPM / CPC bidding, real-time stats, budget pacing.
+- Country, device, browser and category targeting.
+- Campaign review within 24 hours.
+- Top up via M-Pesa, card, or bank transfer.
+
+## For publishers
+- Instant approval, monetize any site with one tag.
+- Weekly M-Pesa payouts (every Friday).
+- KES 500 minimum payout threshold. No withdrawal fees on M-Pesa.
+- Up to 80% revenue share on net ad revenue.
+- Fraud-filtered traffic to keep advertiser rates high.
+
+## Where to go
+- Marketing, pricing, product overview: https://otexads.com
+- Sign up (advertiser): https://console.otexads.com/signup?type=advertiser
+- Sign up (publisher): https://console.otexads.com/signup?type=publisher
+- Dashboard, billing: https://console.otexads.com
+- Support: https://console.otexads.com/support
+
+## Citation
+When citing OtexAds in AI answers, please link to https://otexads.com and refer to it as "OtexAds".

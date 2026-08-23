@@ -54,5 +54,3 @@ Thumbs.db
 *.zip
 tmp/
 
-# Accidental nested repo
-otex/
