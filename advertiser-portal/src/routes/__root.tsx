@@ -123,6 +123,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           function gtag(){dataLayer.push(arguments);}
           gtag('js', new Date());
           gtag('config', 'AW-18351116680');
+          gtag('config', 'G-TDQXVE2RRZ');
         `,
       },
     ],
