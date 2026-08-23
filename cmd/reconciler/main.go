@@ -251,12 +251,12 @@ func (r *Reconciler) reconcileServingMetadata(ctx context.Context, campaigns []*
 func (r *Reconciler) getActiveZones(ctx context.Context) ([]*zoneRow, error) {
 	const query = `
 		SELECT id, site_id, name, format, floor_price_cents, status,
-		       array_to_string(countries, ',') as countries,
-		       array_to_string(device_types, ',') as device_types,
-		       array_to_string(os, ',') as os,
-		       array_to_string(browsers, ',') as browsers,
-		       array_to_string(carriers, ',') as carriers,
-		       array_to_string(connection_types, ',') as connection_types
+		       COALESCE(array_to_string(countries, ','), '') as countries,
+		       COALESCE(array_to_string(device_types, ','), '') as device_types,
+		       COALESCE(array_to_string(os, ','), '') as os,
+		       COALESCE(array_to_string(browsers, ','), '') as browsers,
+		       COALESCE(array_to_string(carriers, ','), '') as carriers,
+		       COALESCE(array_to_string(connection_types, ','), '') as connection_types
 		FROM zones
 		WHERE status = 'active'
 	`
