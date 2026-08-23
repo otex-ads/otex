@@ -145,6 +145,32 @@ export interface StatsResponse {
   byZone?: Array<{ key: string; impressions: number; clicks: number; revenue: number }>;
 }
 
+export interface AnalyticsBreakdownRow {
+  key: string;
+  impressions: number;
+  clicks: number;
+  revenue: number;
+}
+
+export interface DetailedAnalyticsResponse {
+  summary: {
+    impressions: number;
+    clicks: number;
+    conversions: number;
+    ctr: number;
+    ecpm: number;
+    revenue: number;
+    grossSpend: number;
+    fillRate: number;
+  };
+  daily: Array<{ date: string; impressions: number; clicks: number; revenue: number }>;
+  byCountry: AnalyticsBreakdownRow[];
+  byDevice: AnalyticsBreakdownRow[];
+  bySite: AnalyticsBreakdownRow[];
+  byZone: AnalyticsBreakdownRow[];
+  byCampaign: AnalyticsBreakdownRow[];
+}
+
 export interface Balance {
   available: number;
   pending: number;
@@ -180,6 +206,13 @@ export const api = {
 
   // Admin
   getStats: () => apiFetch<any>("/api/v1/admin/stats"),
+  getDetailedAnalytics: (params: { from?: string; to?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.from) qs.set("from", params.from);
+    if (params.to) qs.set("to", params.to);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return apiFetch<DetailedAnalyticsResponse>(`/api/v1/admin/analytics${suffix}`);
+  },
   listUsers: () => apiFetch<any[]>("/api/v1/admin/users"),
   listCampaigns: () => apiFetch<any[]>("/api/v1/admin/campaigns"),
   updateCampaignStatus: (id: string, status: string) =>

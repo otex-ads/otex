@@ -138,6 +138,7 @@ func main() {
 	// Admin routes (admin only)
 	adminHandler := NewAdminHandler(db, redisClient, emailRenderer)
 	protected.HandleFunc("/admin/stats", adminHandler.GetStats).Methods("GET", "OPTIONS")
+	protected.HandleFunc("/admin/analytics", adminHandler.GetDetailedAnalytics).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/admin/users", adminHandler.ListUsers).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/admin/campaigns", adminHandler.ListCampaigns).Methods("GET", "OPTIONS")
 	protected.HandleFunc("/admin/campaigns/{id}/status", adminHandler.UpdateCampaignStatus).Methods("PATCH", "OPTIONS")

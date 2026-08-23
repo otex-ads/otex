@@ -8,6 +8,7 @@ import { SurfaceCard, SectionLabel } from "@/components/Card";
 import { StatusPill } from "@/components/StatusPill";
 import { EmptyState } from "@/components/EmptyState";
 import { Modal, FormField, inputCls, ModalActions } from "@/components/Modal";
+import { PayoutTermsCard } from "@/components/PayoutTermsCard";
 import { api, type Balance, type Payout, type RecipientStatus } from "@/lib/api";
 import { USD, formatDate } from "@/lib/format";
 
@@ -87,6 +88,8 @@ function PayoutsPage() {
           </div>
         }
       />
+
+      <PayoutTermsCard />
 
       <div className="grid gap-4 md:grid-cols-3">
         <SurfaceCard>

@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, LayoutGrid } from "lucide-react";
+import { Plus, Pencil, Trash2, LayoutGrid, Megaphone, Check } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { SurfaceCard } from "@/components/Card";
@@ -284,35 +284,38 @@ function ZoneFormModal({
     carriers: zone?.carriers ?? [],
     connectionTypes: zone?.connectionTypes ?? [],
   });
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
+  // All active campaigns, browsable regardless of current form state
+  const activeCampaigns = (campaigns ?? []).filter((c) => c.status === "active");
 
-  // Check if campaign targeting matches zone targeting
-  const getMatchingCampaigns = () => {
-    if (!campaigns || campaigns.length === 0) return [];
-    return campaigns.filter((campaign) => {
-      if (campaign.status !== "active") return false;
-      // Check format match
-      if (campaign.format !== form.format) return false;
-      // Check countries overlap
-      if (form.countries.length > 0 && campaign.targeting.countries.length > 0) {
-        const hasOverlap = form.countries.some((c) => campaign.targeting.countries.includes(c));
-        if (!hasOverlap) return false;
-      }
-      // Check devices overlap
-      if (form.deviceTypes.length > 0 && campaign.targeting.devices.length > 0) {
-        const hasOverlap = form.deviceTypes.some((d) => campaign.targeting.devices.includes(d));
-        if (!hasOverlap) return false;
-      }
-      // Check OS overlap
-      if (form.os.length > 0 && campaign.targeting.os.length > 0) {
-        const hasOverlap = form.os.some((o) => campaign.targeting.os.includes(o));
-        if (!hasOverlap) return false;
-      }
-      return true;
+  // Live compatibility check against the form's current targeting
+  const matchingCampaigns = activeCampaigns.filter((campaign) => {
+    if (campaign.format !== form.format) return false;
+    if (form.countries.length > 0 && campaign.targeting.countries.length > 0) {
+      const hasOverlap = form.countries.some((c) => campaign.targeting.countries.includes(c));
+      if (!hasOverlap) return false;
+    }
+    if (form.deviceTypes.length > 0 && campaign.targeting.devices.length > 0) {
+      const hasOverlap = form.deviceTypes.some((d) => campaign.targeting.devices.includes(d));
+      if (!hasOverlap) return false;
+    }
+    if (form.os.length > 0 && campaign.targeting.os.length > 0) {
+      const hasOverlap = form.os.some((o) => campaign.targeting.os.includes(o));
+      if (!hasOverlap) return false;
+    }
+    return true;
+  });
+
+  // Clicking a campaign card copies its format + targeting straight into the form
+  const applyCampaignTargeting = (campaign: (typeof activeCampaigns)[number]) => {
+    setForm({
+      ...form,
+      format: campaign.format as AdFormat,
+      countries: campaign.targeting.countries,
+      deviceTypes: campaign.targeting.devices,
+      os: campaign.targeting.os,
     });
+    toast.success(`Applied "${campaign.name}" targeting to this zone`);
   };
-
-  const matchingCampaigns = getMatchingCampaigns();
 
   const submit = () => {
     if (!form.name.trim()) return toast.error("Zone name required.");
@@ -323,6 +326,56 @@ function ZoneFormModal({
   return (
     <Modal open onClose={onClose} title={title}>
       <div className="flex flex-col gap-4">
+        <FormField label="Available campaigns">
+          {activeCampaigns.length === 0 ? (
+            <p className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
+              No active campaigns yet. You can still create a zone — it will start
+              matching campaigns automatically once advertisers launch ones that fit.
+            </p>
+          ) : (
+            <>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Browse active campaigns below and click one to auto-fill this zone's
+                format &amp; targeting — no more guesswork.
+              </p>
+              <div className="max-h-52 space-y-2 overflow-y-auto rounded-md border border-border p-2">
+                {activeCampaigns.map((c) => {
+                  const isCurrentMatch = matchingCampaigns.some((m) => m.id === c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => applyCampaignTargeting(c)}
+                      className={`flex w-full items-start justify-between gap-3 rounded-md border p-2.5 text-left text-xs transition-colors ${
+                        isCurrentMatch
+                          ? "border-primary/40 bg-primary/5"
+                          : "border-border bg-card hover:bg-muted/50"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <Megaphone className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                        <div>
+                          <div className="font-medium text-foreground">{c.name}</div>
+                          <div className="mt-0.5 text-muted-foreground">
+                            {c.format} · {c.targeting.countries.length > 0 ? c.targeting.countries.join(", ") : "All countries"} ·{" "}
+                            {c.targeting.devices.length > 0 ? c.targeting.devices.join(", ") : "All devices"}
+                          </div>
+                        </div>
+                      </div>
+                      {isCurrentMatch ? (
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                          <Check className="size-3" /> Matches
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-muted-foreground">Use this →</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </FormField>
         <FormField label="Zone name" required>
           <input
             className={inputCls}
@@ -491,54 +544,22 @@ function ZoneFormModal({
             </div>
           </div>
         </FormField>
-        <FormField label="Matching Campaigns">
-          <div className="space-y-2">
-            {matchingCampaigns.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                No active campaigns match this zone's targeting. Adjust targeting or wait for campaigns to be created.
-              </p>
-            ) : (
-              <>
-                <select
-                  className={selectCls}
-                  value={selectedCampaignId}
-                  onChange={(e) => setSelectedCampaignId(e.target.value)}
-                >
-                  <option value="">Select a campaign to view details</option>
-                  {matchingCampaigns.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.format}) · {c.status}
-                    </option>
-                  ))}
-                </select>
-                {selectedCampaignId && (
-                  <div className="rounded-md bg-muted/50 p-3 text-xs">
-                    {(() => {
-                      const selected = matchingCampaigns.find((c) => c.id === selectedCampaignId);
-                      if (!selected) return null;
-                      return (
-                        <div className="space-y-1">
-                          <p className="font-medium text-foreground">{selected.name}</p>
-                          <p className="text-muted-foreground">Format: {selected.format}</p>
-                          <p className="text-muted-foreground">Status: {selected.status}</p>
-                          <p className="text-muted-foreground">
-                            Countries: {selected.targeting.countries.join(", ") || "All"}
-                          </p>
-                          <p className="text-muted-foreground">
-                            Devices: {selected.targeting.devices.join(", ") || "All"}
-                          </p>
-                          <p className="text-muted-foreground">
-                            OS: {selected.targeting.os.join(", ") || "All"}
-                          </p>
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </FormField>
+        <div
+          className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs font-medium ${
+            matchingCampaigns.length > 0
+              ? "bg-primary/10 text-primary"
+              : "bg-amber-500/10 text-amber-600"
+          }`}
+        >
+          {matchingCampaigns.length > 0 ? (
+            <>
+              <Check className="size-3.5" /> {matchingCampaigns.length} active campaign
+              {matchingCampaigns.length === 1 ? "" : "s"} will match this zone right now.
+            </>
+          ) : (
+            <>No active campaigns match this exact targeting yet — widen it or pick one above.</>
+          )}
+        </div>
         {zone && onToggle && (
           <button
             type="button"

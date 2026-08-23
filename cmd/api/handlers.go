@@ -2627,9 +2627,251 @@ func (h *AdminHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	h.db.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM campaigns WHERE status = 'active'").Scan(&stats.ActiveCampaigns)
 	h.db.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM campaigns").Scan(&stats.TotalCampaigns)
 
-	h.db.Pool().QueryRow(ctx, "SELECT COALESCE(SUM(spend_cents), 0) FROM stats").Scan(&stats.TotalRevenueCents)
+	h.db.Pool().QueryRow(ctx, "SELECT COALESCE(SUM(platform_fee_cents), 0) FROM revenue_ledger").Scan(&stats.TotalRevenueCents)
 
 	httpx.JSON(w, http.StatusOK, stats)
+}
+
+type AnalyticsBreakdownRow struct {
+	Key         string  `json:"key"`
+	Impressions int64   `json:"impressions"`
+	Clicks      int64   `json:"clicks"`
+	Revenue     float64 `json:"revenue"`
+}
+
+type AnalyticsDailyRow struct {
+	Date        string  `json:"date"`
+	Impressions int64   `json:"impressions"`
+	Clicks      int64   `json:"clicks"`
+	Revenue     float64 `json:"revenue"`
+}
+
+type AnalyticsSummary struct {
+	Impressions int64   `json:"impressions"`
+	Clicks      int64   `json:"clicks"`
+	Conversions int64   `json:"conversions"`
+	CTR         float64 `json:"ctr"`
+	ECPM        float64 `json:"ecpm"`
+	Revenue     float64 `json:"revenue"`
+	GrossSpend  float64 `json:"grossSpend"`
+	FillRate    float64 `json:"fillRate"`
+}
+
+type DetailedAnalyticsResponse struct {
+	Summary    AnalyticsSummary        `json:"summary"`
+	Daily      []AnalyticsDailyRow     `json:"daily"`
+	ByCountry  []AnalyticsBreakdownRow `json:"byCountry"`
+	ByDevice   []AnalyticsBreakdownRow `json:"byDevice"`
+	BySite     []AnalyticsBreakdownRow `json:"bySite"`
+	ByZone     []AnalyticsBreakdownRow `json:"byZone"`
+	ByCampaign []AnalyticsBreakdownRow `json:"byCampaign"`
+}
+
+func (h *AdminHandler) GetDetailedAnalytics(w http.ResponseWriter, r *http.Request) {
+	accountType, ok := mw.AccountTypeFromContext(r.Context())
+	if !ok || accountType != "admin" {
+		httpx.Error(w, http.StatusForbidden, "Admin access required")
+		return
+	}
+
+	ctx := r.Context()
+	q := r.URL.Query()
+	from := q.Get("from")
+	to := q.Get("to")
+	if from == "" {
+		from = time.Now().AddDate(0, 0, -30).Format("2006-01-02")
+	}
+	if to == "" {
+		to = time.Now().Format("2006-01-02")
+	}
+	// End-of-day bound so "to" is inclusive
+	toBound := to + " 23:59:59"
+
+	resp := DetailedAnalyticsResponse{
+		Daily:      []AnalyticsDailyRow{},
+		ByCountry:  []AnalyticsBreakdownRow{},
+		ByDevice:   []AnalyticsBreakdownRow{},
+		BySite:     []AnalyticsBreakdownRow{},
+		ByZone:     []AnalyticsBreakdownRow{},
+		ByCampaign: []AnalyticsBreakdownRow{},
+	}
+
+	pool := h.db.Pool()
+
+	// Summary: impressions/clicks from event tables, revenue from revenue_ledger
+	pool.QueryRow(ctx, `SELECT COUNT(*) FROM impressions WHERE occurred_at BETWEEN $1 AND $2 AND is_fraud = false`, from, toBound).Scan(&resp.Summary.Impressions)
+	pool.QueryRow(ctx, `SELECT COUNT(*) FROM clicks WHERE occurred_at BETWEEN $1 AND $2 AND is_fraud = false`, from, toBound).Scan(&resp.Summary.Clicks)
+	pool.QueryRow(ctx, `SELECT COUNT(*) FROM conversions WHERE occurred_at BETWEEN $1 AND $2`, from, toBound).Scan(&resp.Summary.Conversions)
+
+	var grossCents, platformFeeCents int64
+	pool.QueryRow(ctx, `SELECT COALESCE(SUM(gross_amount_cents), 0), COALESCE(SUM(platform_fee_cents), 0) FROM revenue_ledger WHERE created_at BETWEEN $1 AND $2`, from, toBound).Scan(&grossCents, &platformFeeCents)
+	resp.Summary.GrossSpend = float64(grossCents) / 100
+	resp.Summary.Revenue = float64(platformFeeCents) / 100
+
+	if resp.Summary.Clicks > 0 && resp.Summary.Impressions > 0 {
+		resp.Summary.CTR = float64(resp.Summary.Clicks) / float64(resp.Summary.Impressions) * 100
+	}
+	if resp.Summary.Impressions > 0 {
+		resp.Summary.ECPM = resp.Summary.GrossSpend / float64(resp.Summary.Impressions) * 1000
+	}
+
+	// Daily trend: impressions/clicks by day, revenue (platform fee) by day
+	dailyRows, err := pool.Query(ctx, `
+		SELECT day::date::text, COALESCE(imp.c, 0), COALESCE(clk.c, 0), COALESCE(rev.r, 0)
+		FROM generate_series($1::date, $2::date, interval '1 day') AS day
+		LEFT JOIN (
+			SELECT DATE(occurred_at) d, COUNT(*) c FROM impressions
+			WHERE occurred_at BETWEEN $1 AND $3 AND is_fraud = false GROUP BY DATE(occurred_at)
+		) imp ON imp.d = day
+		LEFT JOIN (
+			SELECT DATE(occurred_at) d, COUNT(*) c FROM clicks
+			WHERE occurred_at BETWEEN $1 AND $3 AND is_fraud = false GROUP BY DATE(occurred_at)
+		) clk ON clk.d = day
+		LEFT JOIN (
+			SELECT DATE(created_at) d, SUM(platform_fee_cents) / 100.0 r FROM revenue_ledger
+			WHERE created_at BETWEEN $1 AND $3 GROUP BY DATE(created_at)
+		) rev ON rev.d = day
+		ORDER BY day
+	`, from, to, toBound)
+	if err == nil {
+		defer dailyRows.Close()
+		for dailyRows.Next() {
+			var row AnalyticsDailyRow
+			if dailyRows.Scan(&row.Date, &row.Impressions, &row.Clicks, &row.Revenue) == nil {
+				resp.Daily = append(resp.Daily, row)
+			}
+		}
+	}
+
+	// Breakdown by country (impression-level geo)
+	countryRows, err := pool.Query(ctx, `
+		SELECT COALESCE(country, 'Unknown'), COUNT(*), COALESCE(SUM(cost_cents), 0) / 100.0
+		FROM impressions WHERE occurred_at BETWEEN $1 AND $2 AND is_fraud = false
+		GROUP BY country ORDER BY COUNT(*) DESC LIMIT 20
+	`, from, toBound)
+	if err == nil {
+		defer countryRows.Close()
+		for countryRows.Next() {
+			var row AnalyticsBreakdownRow
+			if countryRows.Scan(&row.Key, &row.Impressions, &row.Revenue) == nil {
+				resp.ByCountry = append(resp.ByCountry, row)
+			}
+		}
+	}
+
+	// Breakdown by device type (impression-level)
+	deviceRows, err := pool.Query(ctx, `
+		SELECT COALESCE(device_type, 'Unknown'), COUNT(*), COALESCE(SUM(cost_cents), 0) / 100.0
+		FROM impressions WHERE occurred_at BETWEEN $1 AND $2 AND is_fraud = false
+		GROUP BY device_type ORDER BY COUNT(*) DESC LIMIT 20
+	`, from, toBound)
+	if err == nil {
+		defer deviceRows.Close()
+		for deviceRows.Next() {
+			var row AnalyticsBreakdownRow
+			if deviceRows.Scan(&row.Key, &row.Impressions, &row.Revenue) == nil {
+				resp.ByDevice = append(resp.ByDevice, row)
+			}
+		}
+	}
+
+	// Breakdown by site (via zones), impressions + clicks + platform revenue
+	siteRows, err := pool.Query(ctx, `
+		WITH imp AS (
+			SELECT z.site_id, COUNT(*) c FROM impressions i
+			JOIN zones z ON z.id = i.zone_id
+			WHERE i.occurred_at BETWEEN $1 AND $2 AND i.is_fraud = false
+			GROUP BY z.site_id
+		), clk AS (
+			SELECT z.site_id, COUNT(*) c FROM clicks cl
+			JOIN zones z ON z.id = cl.zone_id
+			WHERE cl.occurred_at BETWEEN $1 AND $2 AND cl.is_fraud = false
+			GROUP BY z.site_id
+		), rev AS (
+			SELECT z.site_id, SUM(rl.platform_fee_cents) / 100.0 r FROM revenue_ledger rl
+			JOIN zones z ON z.id = rl.zone_id
+			WHERE rl.created_at BETWEEN $1 AND $2
+			GROUP BY z.site_id
+		)
+		SELECT s.domain, COALESCE(imp.c, 0), COALESCE(clk.c, 0), COALESCE(rev.r, 0)
+		FROM sites s
+		LEFT JOIN imp ON imp.site_id = s.id
+		LEFT JOIN clk ON clk.site_id = s.id
+		LEFT JOIN rev ON rev.site_id = s.id
+		WHERE COALESCE(imp.c, 0) > 0 OR COALESCE(clk.c, 0) > 0
+		ORDER BY COALESCE(imp.c, 0) DESC LIMIT 20
+	`, from, toBound)
+	if err == nil {
+		defer siteRows.Close()
+		for siteRows.Next() {
+			var row AnalyticsBreakdownRow
+			if siteRows.Scan(&row.Key, &row.Impressions, &row.Clicks, &row.Revenue) == nil {
+				resp.BySite = append(resp.BySite, row)
+			}
+		}
+	}
+
+	// Breakdown by zone
+	zoneRows, err := pool.Query(ctx, `
+		WITH imp AS (
+			SELECT zone_id, COUNT(*) c FROM impressions
+			WHERE occurred_at BETWEEN $1 AND $2 AND is_fraud = false GROUP BY zone_id
+		), clk AS (
+			SELECT zone_id, COUNT(*) c FROM clicks
+			WHERE occurred_at BETWEEN $1 AND $2 AND is_fraud = false GROUP BY zone_id
+		), rev AS (
+			SELECT zone_id, SUM(platform_fee_cents) / 100.0 r FROM revenue_ledger
+			WHERE created_at BETWEEN $1 AND $2 GROUP BY zone_id
+		)
+		SELECT z.name, COALESCE(imp.c, 0), COALESCE(clk.c, 0), COALESCE(rev.r, 0)
+		FROM zones z
+		LEFT JOIN imp ON imp.zone_id = z.id
+		LEFT JOIN clk ON clk.zone_id = z.id
+		LEFT JOIN rev ON rev.zone_id = z.id
+		WHERE COALESCE(imp.c, 0) > 0 OR COALESCE(clk.c, 0) > 0
+		ORDER BY COALESCE(imp.c, 0) DESC LIMIT 20
+	`, from, toBound)
+	if err == nil {
+		defer zoneRows.Close()
+		for zoneRows.Next() {
+			var row AnalyticsBreakdownRow
+			if zoneRows.Scan(&row.Key, &row.Impressions, &row.Clicks, &row.Revenue) == nil {
+				resp.ByZone = append(resp.ByZone, row)
+			}
+		}
+	}
+
+	// Breakdown by campaign (advertiser spend + performance)
+	campaignRows, err := pool.Query(ctx, `
+		WITH imp AS (
+			SELECT campaign_id, COUNT(*) c FROM impressions
+			WHERE occurred_at BETWEEN $1 AND $2 AND is_fraud = false GROUP BY campaign_id
+		), clk AS (
+			SELECT campaign_id, COUNT(*) c FROM clicks
+			WHERE occurred_at BETWEEN $1 AND $2 AND is_fraud = false GROUP BY campaign_id
+		), rev AS (
+			SELECT campaign_id, SUM(gross_amount_cents) / 100.0 r FROM revenue_ledger
+			WHERE created_at BETWEEN $1 AND $2 GROUP BY campaign_id
+		)
+		SELECT c.name, COALESCE(imp.c, 0), COALESCE(clk.c, 0), COALESCE(rev.r, 0)
+		FROM campaigns c
+		LEFT JOIN imp ON imp.campaign_id = c.id
+		LEFT JOIN clk ON clk.campaign_id = c.id
+		LEFT JOIN rev ON rev.campaign_id = c.id
+		WHERE COALESCE(imp.c, 0) > 0 OR COALESCE(clk.c, 0) > 0
+		ORDER BY COALESCE(imp.c, 0) DESC LIMIT 20
+	`, from, toBound)
+	if err == nil {
+		defer campaignRows.Close()
+		for campaignRows.Next() {
+			var row AnalyticsBreakdownRow
+			if campaignRows.Scan(&row.Key, &row.Impressions, &row.Clicks, &row.Revenue) == nil {
+				resp.ByCampaign = append(resp.ByCampaign, row)
+			}
+		}
+	}
+
+	httpx.JSON(w, http.StatusOK, resp)
 }
 
 func (h *AdminHandler) ListUsers(w http.ResponseWriter, r *http.Request) {

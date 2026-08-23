@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Wallet as WalletIcon, ArrowDownLeft, ArrowUpRight, CreditCard, Mail } from "lucide-react";
 import { SurfaceCard, SectionLabel } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
+import { BillingTermsCard } from "@/components/BillingTermsCard";
 import { store, useStore } from "@/lib/store";
 import { KES, formatDate } from "@/lib/format";
 
@@ -86,6 +87,8 @@ function WalletPage() {
   return (
     <div>
       <PageHeader title="Wallet" description="Fund your account and track every transaction." />
+
+      <BillingTermsCard className="mb-6" />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <SurfaceCard className="lg:col-span-1 relative overflow-hidden bg-anchor text-anchor-foreground">
