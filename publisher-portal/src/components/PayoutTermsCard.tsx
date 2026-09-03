@@ -5,7 +5,7 @@ const TERMS = [
   { label: "Payout method", value: "M-Pesa · Bank transfer" },
   { label: "Payout frequency", value: "Weekly · Every Friday" },
   { label: "Minimum threshold", value: "KES 500" },
-  { label: "Revenue share", value: "Up to 80% of net ad revenue" },
+  { label: "Revenue share", value: "70% of net ad revenue" },
   { label: "Onboarding fee", value: "None" },
   { label: "Withdrawal fee", value: "None on M-Pesa" },
 ];

@@ -125,7 +125,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
               parentOrganization: { "@type": "Organization", name: "Siohioma Group" },
               contactPoint: {
                 "@type": "ContactPoint",
-                url: "https://console.otexads.com/support",
+                email: "support@otexads.com",
                 contactType: "customer support",
               },
             },

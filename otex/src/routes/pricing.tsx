@@ -30,7 +30,7 @@ const advertiserTiers = [
       "Campaign review within 24 hours",
     ],
     cta: "Start advertising",
-    href: "https://console.otexads.com/signup?type=advertiser",
+    href: "https://advertiser.otexads.com/auth/register",
     highlight: true,
   },
   {
@@ -46,18 +46,9 @@ const advertiserTiers = [
       "Consolidated monthly invoice",
     ],
     cta: "Talk to sales",
-    href: "https://console.otexads.com/support",
+    href: "mailto:support@otexads.com",
     highlight: false,
   },
-];
-
-const publisherTerms = [
-  { name: "Payout method", value: "M-Pesa · Bank transfer" },
-  { name: "Payout frequency", value: "Weekly · Every Friday" },
-  { name: "Minimum threshold", value: "KES 500" },
-  { name: "Revenue share", value: "Up to 80% of net ad revenue" },
-  { name: "Onboarding fee", value: "None" },
-  { name: "Withdrawal fee", value: "None on M-Pesa" },
 ];
 
 function PricingPage() {
@@ -69,7 +60,7 @@ function PricingPage() {
         lede="No per-seat traps. No FX surprises. Advertisers pay per impression or click. Publishers get paid weekly, in M-Pesa."
       />
 
-      <section className="mx-auto max-w-6xl px-6 pb-16">
+      <section className="mx-auto max-w-6xl px-6 pb-24">
         <div className="text-[11px] uppercase tracking-[0.28em] text-foreground/45 mb-6 text-center">
           For Advertisers
         </div>
@@ -112,34 +103,6 @@ function PricingPage() {
               </a>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-6 pb-24">
-        <div className="text-[11px] uppercase tracking-[0.28em] text-foreground/45 mb-6 text-center">
-          For Publishers
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-8 md:p-10">
-          <h2 className="text-2xl md:text-3xl font-black tracking-[-0.035em]">
-            Get paid <span className="font-serif-italic font-normal">weekly.</span> Straight to M-Pesa.
-          </h2>
-          <p className="mt-3 text-foreground/65 max-w-xl">
-            Publishers keep up to 80% of net ad revenue on their zones. No onboarding fee, no withdrawal fee on M-Pesa, no net-30 wait.
-          </p>
-          <dl className="mt-8 grid sm:grid-cols-2 gap-x-10 gap-y-4 text-sm">
-            {publisherTerms.map((row) => (
-              <div key={row.name} className="flex items-baseline justify-between gap-4 border-b border-border/60 pb-3">
-                <dt className="text-foreground/55">{row.name}</dt>
-                <dd className="font-semibold text-right">{row.value}</dd>
-              </div>
-            ))}
-          </dl>
-          <a
-            href="https://console.otexads.com/signup?type=publisher"
-            className="mt-8 inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full bg-foreground text-background font-bold text-sm hover:opacity-90 transition"
-          >
-            Monetize your site
-          </a>
         </div>
         <p className="mt-10 text-center text-xs text-foreground/45">
           Prices in Kenyan Shillings. Pay by M-Pesa, card, or bank transfer. VAT included where applicable.

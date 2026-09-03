@@ -139,6 +139,17 @@ services:
       - "3001:3001"
     restart: unless-stopped
 
+  otex:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.otex
+    container_name: adnet-otex
+    environment:
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+
   admin-portal:
     build:
       context: ..

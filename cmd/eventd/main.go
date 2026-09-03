@@ -168,8 +168,8 @@ func processImpression(ctx context.Context, tx pgx.Tx, event map[string]interfac
 		return err
 	}
 
-	// Credit publisher wallet (75% revenue share)
-	if err := creditPublisher(ctx, tx, zoneID, costCents*75/100); err != nil {
+	// Credit publisher wallet (70% revenue share)
+	if err := creditPublisher(ctx, tx, zoneID, costCents*70/100); err != nil {
 		return err
 	}
 
@@ -199,8 +199,8 @@ func processClick(ctx context.Context, tx pgx.Tx, event map[string]interface{}) 
 		return err
 	}
 
-	// Credit publisher wallet (75% revenue share)
-	if err := creditPublisher(ctx, tx, zoneID, costCents*75/100); err != nil {
+	// Credit publisher wallet (70% revenue share)
+	if err := creditPublisher(ctx, tx, zoneID, costCents*70/100); err != nil {
 		return err
 	}
 

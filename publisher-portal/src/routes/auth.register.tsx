@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { api, getToken, setToken, setUser } from "@/lib/api";
+import { trackSignupConversion } from "@/lib/analytics";
 
 export const Route = createFileRoute("/auth/register")({
   ssr: false,
@@ -32,6 +33,7 @@ function RegisterPage() {
       if (!res?.access_token) throw new Error("No token returned");
       setToken(res.access_token);
       setUser({ email: res.email ?? email.trim() });
+      trackSignupConversion("publisher");
       toast.success("Account created successfully");
       navigate({ to: "/" });
     } catch (err) {
